@@ -4,7 +4,6 @@ import axios from 'axios';
 const app = express();
 app.use(express.json());
 
-// നക്ഷത്രങ്ങളെ മലയാളത്തിലേക്ക് മാറ്റാനുള്ള മാപ്പിംഗ്
 const nakshatraMap: { [key: string]: string } = {
     "Ashwini": "അശ്വതി", "Bharani": "ഭരണി", "Krittika": "കാർത്തിക",
     "Rohini": "രോഹിണി", "Mrigashirsha": "മകയിരം", "Ardra": "തിരുവാതിര",
@@ -43,7 +42,7 @@ app.get('/api/panchangam', async (req: Request, res: Response) => {
         const nakshatraEng = data?.nakshatra?.name || "ലഭ്യമല്ല";
         const nakshatraMal = nakshatraMap[nakshatraEng] || nakshatraEng;
 
-        // രാഹുകാലം കിട്ടിയ പഴയ രീതിയിൽ തന്നെ എല്ലാ സമയങ്ങളും കൊടുക്കുന്നു
+        // സമയങ്ങൾ (പഴയതുപോലെ തന്നെ, കൃത്യമായ റിസൾട്ട് കിട്ടിയ രീതി)
         const rahuStart = data?.rahu_kalam?.start || data?.rahukalam?.start || data?.rahu_kala?.start || "ലഭ്യമല്ല";
         const rahuEnd = data?.rahu_kalam?.end || data?.rahukalam?.end || data?.rahu_kala?.end || "ലഭ്യമല്ല";
 
@@ -56,7 +55,6 @@ app.get('/api/panchangam', async (req: Request, res: Response) => {
         const abhijitStart = data?.abhijit_muhurta?.start || data?.abhijit_muhurtham?.start || data?.abhijit?.start || "ലഭ്യമല്ല";
         const abhijitEnd = data?.abhijit_muhurta?.end || data?.abhijit_muhurtham?.end || data?.abhijit?.end || "ലഭ്യമല്ല";
 
-        // വാചകങ്ങൾ തയ്യാറാക്കുന്നു
         const rahuText = (rahuStart === "ലഭ്യമല്ല" || rahuEnd === "ലഭ്യമല്ല") 
             ? "രാഹുകാലം ലഭ്യമല്ല." 
             : `രാഹുകാലം ${rahuStart} മുതൽ ${rahuEnd} വരെ ആണ്.`;
@@ -73,13 +71,12 @@ app.get('/api/panchangam', async (req: Request, res: Response) => {
             ? "അഭിജിത്ത് മുഹൂർത്തം ലഭ്യമല്ല." 
             : `അഭിജിത്ത് മുഹൂർത്തം ${abhijitStart} മുതൽ ${abhijitEnd} വരെ ആണ്.`;
 
-        // ഉച്ചാരണം ശരിയാക്കാൻ 'പൻചാംഗം' എന്ന് നൽകുന്നു
         const textToSpeak = `ഇന്നത്തെ പൻചാംഗം. നക്ഷത്രം ${nakshatraMal} ആണ്. ${rahuText} ${gulikaText} ${yamaText} ${abhijitText}`;
 
-        // ഏറ്റവും പ്രധാനപ്പെട്ട മാറ്റം: ബ്രൗസറിൽ API-യുടെ മുഴുവൻ ഡാറ്റയും കാണിക്കാൻ raw_data ചേർക്കുന്നു!
+        // Raw ഡാറ്റ സ്ക്രീനിൽ കാണിക്കാനുള്ള കോഡ്
         res.json({ 
             speech: textToSpeak,
-            raw_data: data 
+            raw_data: data
         });
 
     } catch (error: any) {
