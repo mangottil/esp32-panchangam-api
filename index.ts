@@ -38,7 +38,6 @@ const tamMonthMap: { [key: number]: string } = {
     7: "ഐപ്പശി", 8: "കാർത്തിക", 9: "മാർകഴി", 10: "തൈ", 11: "മാശി", 12: "പാൻഗുനി"
 };
 
-// സംഖ്യകളെ മലയാളം വാക്കുകളാക്കാൻ
 const numToMal: { [key: number]: string } = {
     0: "പൂജ്യം", 1: "ഒന്ന്", 2: "രണ്ട്", 3: "മൂന്ന്", 4: "നാല്", 5: "അഞ്ച്",
     6: "ആറ്", 7: "ഏഴ്", 8: "എട്ട്", 9: "ഒൻപത്", 10: "പത്ത്",
@@ -57,7 +56,6 @@ function numberToMalayalam(n: number): string {
     return String(n);
 }
 
-// സമയത്തെ മലയാളം സംഭാഷണ രൂപത്തിലേക്ക് മാറ്റുന്ന ഫംഗ്ഷൻ (ഉദാ: 12:13 -> പന്ത്രണ്ട് മണി പതിമൂന്ന് മിനിറ്റ്)
 function formatTimeSpoken(timeStr: string): string {
     if (!timeStr || timeStr === "ലഭ്യമല്ല") return "ലഭ്യമല്ല";
     const parts = timeStr.split(':').map(Number);
@@ -82,7 +80,7 @@ function formatTimeSpoken(timeStr: string): string {
         return `${period}${h12 === 12 ? 'പന്ത്രണ്ടര' : hWord + 'ര'}`;
     } else {
         const mWord = numberToMalayalam(m);
-        return `${period}${hWord} മണി ${mWord} മിനിറ്റ്`;
+        return `${period}${h12 === 12 ? 'പന്ത്രണ്ട്' : hWord} മണി ${mWord} മിനിറ്റ്`;
     }
 }
 
@@ -100,10 +98,22 @@ function minsToTime(m: number): string {
 
 app.get('/api/panchangam', async (req: Request, res: Response) => {
     try {
-        const today = new Date();
-        const year = today.getFullYear();
-        const month = today.getMonth() + 1;
-        const day = today.getDate();
+        // ഇന്ത്യൻ ടൈംസോൺ (IST) കൃത്യമായി എടുത്തു വർഷവും മാസവും തീയതിയും കണക്കാക്കുന്നു
+        const options: Intl.DateTimeFormatOptions = { 
+            timeZone: 'Asia/Kolkata', 
+            year: 'numeric', 
+            month: 'numeric', 
+            day: 'numeric' 
+        };
+        const formatter = new Intl.DateTimeFormat('en-IN', options);
+        const parts = formatter.formatToParts(new Date());
+        
+        let year = 2026, month = 10, day = 19;
+        for (const p of parts) {
+            if (p.type === 'year') year = parseInt(p.value);
+            if (p.type === 'month') month = parseInt(p.value);
+            if (p.type === 'day') day = parseInt(p.value);
+        }
 
         const astroResponse = await axios.post("https://api.freeastroapi.com/api/v2/vedic/panchang", {
             year: year, month: month, day: day,
@@ -123,9 +133,6 @@ app.get('/api/panchangam', async (req: Request, res: Response) => {
 
         const tithiEng = data?.tithi?.name || "ലഭ്യമല്ല";
         const tithiMal = tithiMap[tithiEng] || tithiEng;
-
-        const rahuStartRaw = data?.rahu_kalam?.start || "";
-        const rahuEndRaw = data?.rahu_kalam?.end || "";
 
         let gulikaStartRaw = "", gulikaEndRaw = "";
         let yamaStartRaw = "", yamaEndRaw = "";
@@ -172,12 +179,13 @@ app.get('/api/panchangam', async (req: Request, res: Response) => {
             malMonthText = `കൊല്ലവർഷം ${kollaVarsham}, ${malMonth} മാസം ${solarDate} ആം തീയതി. തമിഴ് മാസം ${tamMonth} ${solarDate} ആം തീയതി. `;
         }
 
-        // ബ്രാഹ്മ മുഹൂർത്തം
         const srMins = timeToMins(data?.sunrise);
         const brahmaStartRaw = minsToTime(srMins - 96 < 0 ? srMins - 96 + 1440 : srMins - 96);
         const brahmaEndRaw = minsToTime(srMins - 48 < 0 ? srMins - 48 + 1440 : srMins - 48);
 
-        // സമയങ്ങളെല്ലാം മലയാളം വാക്കുകളാക്കുന്നു
+        const rahuStartRaw = data?.rahu_kalam?.start || "";
+        const rahuEndRaw = data?.rahu_kalam?.end || "";
+
         const brahmaText = (brahmaStartRaw === "ലഭ്യമല്ല") ? "" : `ഇന്നത്തെ ബ്രാഹ്മ മുഹൂർത്തം ${formatTimeSpoken(brahmaStartRaw)} മുതൽ ${formatTimeSpoken(brahmaEndRaw)} വരെ ആണ്.`;
         const rahuText = !rahuStartRaw ? "രാഹുകാലം ലഭ്യമല്ല." : `രാഹുകാലം ${formatTimeSpoken(rahuStartRaw)} മുതൽ ${formatTimeSpoken(rahuEndRaw)} വരെ ആണ്.`;
         const gulikaText = !gulikaStartRaw ? "ഗുളികകാലം ലഭ്യമല്ല." : `ഗുളികകാലം ${formatTimeSpoken(gulikaStartRaw)} മുതൽ ${formatTimeSpoken(gulikaEndRaw)} വരെ ആണ്.`;
