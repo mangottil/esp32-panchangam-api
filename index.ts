@@ -4,7 +4,6 @@ import axios from 'axios';
 const app = express();
 app.use(express.json());
 
-// നക്ഷത്രങ്ങളെ മലയാളത്തിലേക്ക് മാറ്റാനുള്ള മാപ്പിംഗ്
 const nakshatraMap: { [key: string]: string } = {
     "Ashwini": "അശ്വതി", "Bharani": "ഭരണി", "Krittika": "കാർത്തിക",
     "Rohini": "രോഹിണി", "Mrigashirsha": "മകയിരം", "Ardra": "തിരുവാതിര",
@@ -40,24 +39,22 @@ app.get('/api/panchangam', async (req: Request, res: Response) => {
 
         const data = astroResponse.data;
 
-        // 1. നക്ഷത്രം എടുക്കുന്നു
         const nakshatraEng = data?.nakshatra?.name || "ലഭ്യമല്ല";
         const nakshatraMal = nakshatraMap[nakshatraEng] || nakshatraEng;
 
-        // 2. ഊഹങ്ങളില്ലാതെ, API-യുടെ കൃത്യമായ പേരുകളിൽ നിന്ന് സമയങ്ങൾ എടുക്കുന്നു
-        const rahuStart = data?.rahu_kala?.start || "ലഭ്യമല്ല";
-        const rahuEnd = data?.rahu_kala?.end || "ലഭ്യമല്ല";
+        // മുമ്പ് വർക്ക് ചെയ്ത അതേ രീതിയിൽ എല്ലാ പേരുകളും വെച്ച് ഡാറ്റ എടുക്കുന്നു
+        const rahuStart = data?.rahu_kalam?.start || data?.rahukalam?.start || data?.rahu_kala?.start || "ലഭ്യമല്ല";
+        const rahuEnd = data?.rahu_kalam?.end || data?.rahukalam?.end || data?.rahu_kala?.end || "ലഭ്യമല്ല";
 
-        const gulikaStart = data?.gulika_kala?.start || "ലഭ്യമല്ല";
-        const gulikaEnd = data?.gulika_kala?.end || "ലഭ്യമല്ല";
+        const gulikaStart = data?.gulika_kalam?.start || data?.gulikakalam?.start || data?.gulika_kala?.start || "ലഭ്യമല്ല";
+        const gulikaEnd = data?.gulika_kalam?.end || data?.gulikakalam?.end || data?.gulika_kala?.end || "ലഭ്യമല്ല";
 
-        const yamaStart = data?.yamaganda_kala?.start || "ലഭ്യമല്ല";
-        const yamaEnd = data?.yamaganda_kala?.end || "ലഭ്യമല്ല";
+        const yamaStart = data?.yamaganda_kalam?.start || data?.yamagandakalam?.start || data?.yamaganda_kala?.start || data?.yamaganda?.start || "ലഭ്യമല്ല";
+        const yamaEnd = data?.yamaganda_kalam?.end || data?.yamagandakalam?.end || data?.yamaganda_kala?.end || data?.yamaganda?.end || "ലഭ്യമല്ല";
 
-        const abhijitStart = data?.abhijit_muhurta?.start || "ലഭ്യമല്ല";
-        const abhijitEnd = data?.abhijit_muhurta?.end || "ലഭ്യമല്ല";
+        const abhijitStart = data?.abhijit_muhurta?.start || data?.abhijit_muhurtham?.start || data?.abhijit?.start || "ലഭ്യമല്ല";
+        const abhijitEnd = data?.abhijit_muhurta?.end || data?.abhijit_muhurtham?.end || data?.abhijit?.end || "ലഭ്യമല്ല";
 
-        // 3. മലയാളം വാചകങ്ങൾ തയ്യാറാക്കുന്നു (തുടങ്ങുന്ന സമയവും അവസാനിക്കുന്ന സമയവും)
         const rahuText = (rahuStart === "ലഭ്യമല്ല" || rahuEnd === "ലഭ്യമല്ല") 
             ? "രാഹുകാലം ലഭ്യമല്ല." 
             : `രാഹുകാലം ${rahuStart} മുതൽ ${rahuEnd} വരെ ആണ്.`;
@@ -74,7 +71,6 @@ app.get('/api/panchangam', async (req: Request, res: Response) => {
             ? "അഭിജിത്ത് മുഹൂർത്തം ലഭ്യമല്ല." 
             : `അഭിജിത്ത് മുഹൂർത്തം ${abhijitStart} മുതൽ ${abhijitEnd} വരെ ആണ്.`;
 
-        // 4. എല്ലാം ചേർത്ത് ഫൈനൽ വാചകം തയ്യാറാക്കുന്നു
         const textToSpeak = `ഇന്നത്തെ പൻചാംഗം. നക്ഷത്രം ${nakshatraMal} ആണ്. ${rahuText} ${gulikaText} ${yamaText} ${abhijitText}`;
 
         res.json({ speech: textToSpeak });
