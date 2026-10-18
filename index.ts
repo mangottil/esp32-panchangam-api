@@ -6,13 +6,11 @@ app.use(express.json());
 
 app.get('/api/panchangam', async (req: Request, res: Response) => {
     try {
-        // ഇന്നത്തെ തീയതി എടുക്കുന്നു
         const today = new Date();
         const year = today.getFullYear();
         const month = today.getMonth() + 1;
         const day = today.getDate();
 
-        // FreeAstroAPI വഴി തിരൂരിലെ വിവരങ്ങൾ എടുക്കുന്നു
         const astroResponse = await axios.post("https://api.freeastroapi.com/api/v2/vedic/panchang", {
             year: year,
             month: month,
@@ -26,17 +24,24 @@ app.get('/api/panchangam', async (req: Request, res: Response) => {
         }, {
             headers: { 
                 "Content-Type": "application/json",
-                // Render-ൽ ASTRO_API_KEY എന്ന് നൽകണം
                 "x-api-key": process.env.ASTRO_API_KEY 
             }
         });
 
         const data = astroResponse.data;
+        
+        // യഥാർത്ഥ ഡാറ്റ എന്താണെന്ന് ലോഗിൽ കാണാൻ
+        console.log("Panchangam Data:", JSON.stringify(data));
 
-        // ലഭിച്ച വിവരങ്ങൾ വെച്ച് മലയാളത്തിൽ വാചകം ഉണ്ടാക്കുന്നു
-        const textToSpeak = `ഇന്നത്തെ നക്ഷത്രം ${data.nakshatra.name} ആണ്. രാഹുകാലം ${data.rahu_kalam.start} മുതൽ ${data.rahu_kalam.end} വരെ ആണ്. ഗുളികകാലം ${data.gulika_kalam.start} മുതൽ ${data.gulika_kalam.end} വരെ ആണ്.`;
+        // സെർവർ ക്രാഷ് ആവാതിരിക്കാനുള്ള സുരക്ഷാ കോഡ്
+        const nakshatra = data?.nakshatra?.name || "ലഭ്യമല്ല";
+        const rahuStart = data?.rahu_kalam?.start || data?.rahukalam?.start || data?.rahu_kala?.start || "ലഭ്യമല്ല";
+        const rahuEnd = data?.rahu_kalam?.end || data?.rahukalam?.end || data?.rahu_kala?.end || "ലഭ്യമല്ല";
+        const gulikaStart = data?.gulika_kalam?.start || data?.gulikakalam?.start || data?.gulika_kala?.start || "ലഭ്യമല്ല";
+        const gulikaEnd = data?.gulika_kalam?.end || data?.gulikakalam?.end || data?.gulika_kala?.end || "ലഭ്യമല്ല";
 
-        // വാചകം നേരിട്ട് JSON ആയി ESP32-ലേക്ക് നൽകുന്നു
+        const textToSpeak = `ഇന്നത്തെ നക്ഷത്രം ${nakshatra} ആണ്. രാഹുകാലം ${rahuStart} മുതൽ ${rahuEnd} വരെ ആണ്. ഗുളികകാലം ${gulikaStart} മുതൽ ${gulikaEnd} വരെ ആണ്.`;
+
         res.json({ speech: textToSpeak });
 
     } catch (error: any) {
