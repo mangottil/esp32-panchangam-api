@@ -38,6 +38,54 @@ const tamMonthMap: { [key: number]: string } = {
     7: "ഐപ്പശി", 8: "കാർത്തിക", 9: "മാർകഴി", 10: "തൈ", 11: "മാശി", 12: "പാൻഗുനി"
 };
 
+// സംഖ്യകളെ മലയാളം വാക്കുകളാക്കാൻ
+const numToMal: { [key: number]: string } = {
+    0: "പൂജ്യം", 1: "ഒന്ന്", 2: "രണ്ട്", 3: "മൂന്ന്", 4: "നാല്", 5: "അഞ്ച്",
+    6: "ആറ്", 7: "ഏഴ്", 8: "എട്ട്", 9: "ഒൻപത്", 10: "പത്ത്",
+    11: "പതിനൊന്ന്", 12: "പന്ത്രണ്ട്", 13: "പതിമൂന്ന്", 14: "പതിനാല്", 15: "പതിനഞ്ച്",
+    16: "പതിനാറ്", 17: "പതിനേഴ്", 18: "പതിനെട്ട്", 19: "പത്തൊൻപത്", 20: "ഇരുപത്",
+    30: "മുപ്പത്", 40: "നാൽപത്", 50: "അമ്പത്"
+};
+
+function numberToMalayalam(n: number): string {
+    if (numToMal[n]) return numToMal[n];
+    if (n > 20 && n < 60) {
+        const tens = Math.floor(n / 10) * 10;
+        const units = n % 10;
+        return `${numToMal[tens]}ത്തിയെ ${numToMal[units]}`.replace('യെ ', '');
+    }
+    return String(n);
+}
+
+// സമയത്തെ മലയാളം സംഭാഷണ രൂപത്തിലേക്ക് മാറ്റുന്ന ഫംഗ്ഷൻ (ഉദാ: 12:13 -> പന്ത്രണ്ട് മണി പതിമൂന്ന് മിനിറ്റ്)
+function formatTimeSpoken(timeStr: string): string {
+    if (!timeStr || timeStr === "ലഭ്യമല്ല") return "ലഭ്യമല്ല";
+    const parts = timeStr.split(':').map(Number);
+    if (parts.length < 2) return timeStr;
+    
+    let h = parts[0];
+    const m = parts[1];
+
+    let period = "രാവിലെ ";
+    if (h >= 18) period = "രാത്രി ";
+    else if (h >= 16) period = "വൈകുന്നേരം ";
+    else if (h >= 12) period = "ഉച്ചയ്ക്ക് ";
+    else if (h < 5) period = "പുലർച്ചെ ";
+
+    let h12 = h % 12;
+    if (h12 === 0) h12 = 12;
+    const hWord = numberToMalayalam(h12);
+
+    if (m === 0) {
+        return `${period}${hWord} മണി`;
+    } else if (m === 30) {
+        return `${period}${h12 === 12 ? 'പന്ത്രണ്ടര' : hWord + 'ര'}`;
+    } else {
+        const mWord = numberToMalayalam(m);
+        return `${period}${hWord} മണി ${mWord} മിനിറ്റ്`;
+    }
+}
+
 function timeToMins(t: string): number {
     if (!t) return 0;
     const parts = t.split(':').map(Number);
@@ -50,17 +98,6 @@ function minsToTime(m: number): string {
     return `${String(h).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
 }
 
-function getBrahmaMuhurtham(sunriseStr: string) {
-    if (!sunriseStr) return { start: "ലഭ്യമല്ല", end: "ലഭ്യമല്ല" };
-    const srMins = timeToMins(sunriseStr);
-    const startMins = srMins - 96;
-    const endMins = srMins - 48;
-    return {
-        start: minsToTime(startMins < 0 ? startMins + 1440 : startMins),
-        end: minsToTime(endMins < 0 ? endMins + 1440 : endMins)
-    };
-}
-
 app.get('/api/panchangam', async (req: Request, res: Response) => {
     try {
         const today = new Date();
@@ -68,7 +105,6 @@ app.get('/api/panchangam', async (req: Request, res: Response) => {
         const month = today.getMonth() + 1;
         const day = today.getDate();
 
-        // ഒരൊറ്റ റിക്വസ്റ്റ് മാത്രം
         const astroResponse = await axios.post("https://api.freeastroapi.com/api/v2/vedic/panchang", {
             year: year, month: month, day: day,
             hour: 6, minute: 0, city: "Tirur",
@@ -88,12 +124,12 @@ app.get('/api/panchangam', async (req: Request, res: Response) => {
         const tithiEng = data?.tithi?.name || "ലഭ്യമല്ല";
         const tithiMal = tithiMap[tithiEng] || tithiEng;
 
-        const rahuStart = data?.rahu_kalam?.start || "ലഭ്യമല്ല";
-        const rahuEnd = data?.rahu_kalam?.end || "ലഭ്യമല്ല";
+        const rahuStartRaw = data?.rahu_kalam?.start || "";
+        const rahuEndRaw = data?.rahu_kalam?.end || "";
 
-        let gulikaStart = "ലഭ്യമല്ല", gulikaEnd = "ലഭ്യമല്ല";
-        let yamaStart = "ലഭ്യമല്ല", yamaEnd = "ലഭ്യമല്ല";
-        let abhijitStart = "ലഭ്യമല്ല", abhijitEnd = "ലഭ്യമല്ല";
+        let gulikaStartRaw = "", gulikaEndRaw = "";
+        let yamaStartRaw = "", yamaEndRaw = "";
+        let abhijitStartRaw = "", abhijitEndRaw = "";
 
         if (data?.sunrise && data?.sunset && data?.weekday?.number) {
             const srMins = timeToMins(data.sunrise);
@@ -106,17 +142,17 @@ app.get('/api/panchangam', async (req: Request, res: Response) => {
             const gulikaParts = [7, 6, 5, 4, 3, 2, 1]; 
 
             const yamaStartMin = srMins + ((yamaParts[dayIndex] - 1) * partLength);
-            yamaStart = minsToTime(yamaStartMin);
-            yamaEnd = minsToTime(yamaStartMin + partLength);
+            yamaStartRaw = minsToTime(yamaStartMin);
+            yamaEndRaw = minsToTime(yamaStartMin + partLength);
 
             const gulikaStartMin = srMins + ((gulikaParts[dayIndex] - 1) * partLength);
-            gulikaStart = minsToTime(gulikaStartMin);
-            gulikaEnd = minsToTime(gulikaStartMin + partLength);
+            gulikaStartRaw = minsToTime(gulikaStartMin);
+            gulikaEndRaw = minsToTime(gulikaStartMin + partLength);
 
             const muhurtaLength = dayLength / 15;
             const midday = srMins + (dayLength / 2);
-            abhijitStart = minsToTime(midday - (muhurtaLength / 2));
-            abhijitEnd = minsToTime(midday + (muhurtaLength / 2));
+            abhijitStartRaw = minsToTime(midday - (muhurtaLength / 2));
+            abhijitEndRaw = minsToTime(midday + (muhurtaLength / 2));
         }
 
         const sunSignId = data?.request_time_panchang?.sun_sign?.sign_id;
@@ -136,16 +172,17 @@ app.get('/api/panchangam', async (req: Request, res: Response) => {
             malMonthText = `കൊല്ലവർഷം ${kollaVarsham}, ${malMonth} മാസം ${solarDate} ആം തീയതി. തമിഴ് മാസം ${tamMonth} ${solarDate} ആം തീയതി. `;
         }
 
-        // ഇന്നത്തെ ബ്രാഹ്മ മുഹൂർത്തം മാത്രം
-        const todayBrahma = getBrahmaMuhurtham(data?.sunrise);
-        const brahmaText = (todayBrahma.start === "ലഭ്യമല്ല") 
-            ? "" 
-            : `ഇന്നത്തെ ബ്രാഹ്മ മുഹൂർത്തം പുലർച്ചെ ${todayBrahma.start} മുതൽ ${todayBrahma.end} വരെ ആണ്.`;
+        // ബ്രാഹ്മ മുഹൂർത്തം
+        const srMins = timeToMins(data?.sunrise);
+        const brahmaStartRaw = minsToTime(srMins - 96 < 0 ? srMins - 96 + 1440 : srMins - 96);
+        const brahmaEndRaw = minsToTime(srMins - 48 < 0 ? srMins - 48 + 1440 : srMins - 48);
 
-        const rahuText = (rahuStart === "ലഭ്യമല്ല") ? "രാഹുകാലം ലഭ്യമല്ല." : `രാഹുകാലം ${rahuStart} മുതൽ ${rahuEnd} വരെ ആണ്.`;
-        const gulikaText = (gulikaStart === "ലഭ്യമല്ല") ? "ഗുളികകാലം ലഭ്യമല്ല." : `ഗുളികകാലം ${gulikaStart} മുതൽ ${gulikaEnd} വരെ ആണ്.`;
-        const yamaText = (yamaStart === "ലഭ്യമല്ല") ? "യമഗണ്ഡകാലം ലഭ്യമല്ല." : `യമഗണ്ഡകാലം ${yamaStart} മുതൽ ${yamaEnd} വരെ ആണ്.`;
-        const abhijitText = (abhijitStart === "ലഭ്യമല്ല") ? "അഭിജിത്ത് മുഹൂർത്തം ലഭ്യമല്ല." : `അഭിജിത്ത് മുഹൂർത്തം ${abhijitStart} മുതൽ ${abhijitEnd} വരെ ആണ്.`;
+        // സമയങ്ങളെല്ലാം മലയാളം വാക്കുകളാക്കുന്നു
+        const brahmaText = (brahmaStartRaw === "ലഭ്യമല്ല") ? "" : `ഇന്നത്തെ ബ്രാഹ്മ മുഹൂർത്തം ${formatTimeSpoken(brahmaStartRaw)} മുതൽ ${formatTimeSpoken(brahmaEndRaw)} വരെ ആണ്.`;
+        const rahuText = !rahuStartRaw ? "രാഹുകാലം ലഭ്യമല്ല." : `രാഹുകാലം ${formatTimeSpoken(rahuStartRaw)} മുതൽ ${formatTimeSpoken(rahuEndRaw)} വരെ ആണ്.`;
+        const gulikaText = !gulikaStartRaw ? "ഗുളികകാലം ലഭ്യമല്ല." : `ഗുളികകാലം ${formatTimeSpoken(gulikaStartRaw)} മുതൽ ${formatTimeSpoken(gulikaEndRaw)} വരെ ആണ്.`;
+        const yamaText = !yamaStartRaw ? "യമഗണ്ഡകാലം ലഭ്യമല്ല." : `യമഗണ്ഡകാലം ${formatTimeSpoken(yamaStartRaw)} മുതൽ ${formatTimeSpoken(yamaEndRaw)} വരെ ആണ്.`;
+        const abhijitText = !abhijitStartRaw ? "അഭിജിത്ത് മുഹൂർത്തം ലഭ്യമല്ല." : `അഭിജിത്ത് മുഹൂർത്തം ${formatTimeSpoken(abhijitStartRaw)} മുതൽ ${formatTimeSpoken(abhijitEndRaw)} വരെ ആണ്.`;
 
         const textToSpeak = `${malMonthText} ഇന്നത്തെ പൻചാംഗം. തിഥി ${tithiMal}. നക്ഷത്രം ${nakshatraMal} ആണ്. ${brahmaText} ${rahuText} ${gulikaText} ${yamaText} ${abhijitText}`;
 
