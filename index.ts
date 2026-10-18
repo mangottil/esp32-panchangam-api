@@ -4,6 +4,7 @@ import axios from 'axios';
 const app = express();
 app.use(express.json());
 
+// നക്ഷത്രങ്ങളെ മലയാളത്തിലേക്ക് മാറ്റാനുള്ള മാപ്പിംഗ്
 const nakshatraMap: { [key: string]: string } = {
     "Ashwini": "അശ്വതി", "Bharani": "ഭരണി", "Krittika": "കാർത്തിക",
     "Rohini": "രോഹിണി", "Mrigashirsha": "മകയിരം", "Ardra": "തിരുവാതിര",
@@ -39,24 +40,42 @@ app.get('/api/panchangam', async (req: Request, res: Response) => {
 
         const data = astroResponse.data;
 
+        // 1. നക്ഷത്രം എടുക്കുന്നു
         const nakshatraEng = data?.nakshatra?.name || "ലഭ്യമല്ല";
         const nakshatraMal = nakshatraMap[nakshatraEng] || nakshatraEng;
 
-        const rahuStart = data?.rahu_kalam?.start || data?.rahukalam?.start || data?.rahu_kala?.start || "ലഭ്യമല്ല";
-        const rahuEnd = data?.rahu_kalam?.end || data?.rahukalam?.end || data?.rahu_kala?.end || "ലഭ്യമല്ല";
-        const gulikaStart = data?.gulika_kalam?.start || data?.gulikakalam?.start || data?.gulika_kala?.start || "ലഭ്യമല്ല";
-        const gulikaEnd = data?.gulika_kalam?.end || data?.gulikakalam?.end || data?.gulika_kala?.end || "ലഭ്യമല്ല";
+        // 2. ഊഹങ്ങളില്ലാതെ, API-യുടെ കൃത്യമായ പേരുകളിൽ നിന്ന് സമയങ്ങൾ എടുക്കുന്നു
+        const rahuStart = data?.rahu_kala?.start || "ലഭ്യമല്ല";
+        const rahuEnd = data?.rahu_kala?.end || "ലഭ്യമല്ല";
 
-        // സമയം ഉണ്ടെങ്കിൽ മാത്രം "മുതൽ.. വരെ" എന്ന് ചേർക്കുക
+        const gulikaStart = data?.gulika_kala?.start || "ലഭ്യമല്ല";
+        const gulikaEnd = data?.gulika_kala?.end || "ലഭ്യമല്ല";
+
+        const yamaStart = data?.yamaganda_kala?.start || "ലഭ്യമല്ല";
+        const yamaEnd = data?.yamaganda_kala?.end || "ലഭ്യമല്ല";
+
+        const abhijitStart = data?.abhijit_muhurta?.start || "ലഭ്യമല്ല";
+        const abhijitEnd = data?.abhijit_muhurta?.end || "ലഭ്യമല്ല";
+
+        // 3. മലയാളം വാചകങ്ങൾ തയ്യാറാക്കുന്നു (തുടങ്ങുന്ന സമയവും അവസാനിക്കുന്ന സമയവും)
         const rahuText = (rahuStart === "ലഭ്യമല്ല" || rahuEnd === "ലഭ്യമല്ല") 
             ? "രാഹുകാലം ലഭ്യമല്ല." 
             : `രാഹുകാലം ${rahuStart} മുതൽ ${rahuEnd} വരെ ആണ്.`;
 
         const gulikaText = (gulikaStart === "ലഭ്യമല്ല" || gulikaEnd === "ലഭ്യമല്ല") 
-            ? "ഇന്ന് ഗുളികകാലം ലഭ്യമല്ല." 
+            ? "ഗുളികകാലം ലഭ്യമല്ല." 
             : `ഗുളികകാലം ${gulikaStart} മുതൽ ${gulikaEnd} വരെ ആണ്.`;
 
-        const textToSpeak = `ഇന്നത്തെ നക്ഷത്രം ${nakshatraMal} ആണ്. ${rahuText} ${gulikaText}`;
+        const yamaText = (yamaStart === "ലഭ്യമല്ല" || yamaEnd === "ലഭ്യമല്ല") 
+            ? "യമഗണ്ഡകാലം ലഭ്യമല്ല." 
+            : `യമഗണ്ഡകാലം ${yamaStart} മുതൽ ${yamaEnd} വരെ ആണ്.`;
+
+        const abhijitText = (abhijitStart === "ലഭ്യമല്ല" || abhijitEnd === "ലഭ്യമല്ല") 
+            ? "അഭിജിത്ത് മുഹൂർത്തം ലഭ്യമല്ല." 
+            : `അഭിജിത്ത് മുഹൂർത്തം ${abhijitStart} മുതൽ ${abhijitEnd} വരെ ആണ്.`;
+
+        // 4. എല്ലാം ചേർത്ത് ഫൈനൽ വാചകം തയ്യാറാക്കുന്നു
+        const textToSpeak = `ഇന്നത്തെ പൻചാംഗം. നക്ഷത്രം ${nakshatraMal} ആണ്. ${rahuText} ${gulikaText} ${yamaText} ${abhijitText}`;
 
         res.json({ speech: textToSpeak });
 
