@@ -64,29 +64,23 @@ function getBrahmaMuhurtham(sunriseStr: string) {
 app.get('/api/panchangam', async (req: Request, res: Response) => {
     try {
         const today = new Date();
-        const tomorrow = new Date(today);
-        tomorrow.setDate(tomorrow.getDate() + 1);
+        const year = today.getFullYear();
+        const month = today.getMonth() + 1;
+        const day = today.getDate();
 
-        const fetchAstroData = (date: Date) => {
-            return axios.post("https://api.freeastroapi.com/api/v2/vedic/panchang", {
-                year: date.getFullYear(), month: date.getMonth() + 1, day: date.getDate(),
-                hour: 6, minute: 0, city: "Tirur",
-                lat: 10.9156, lng: 75.9236, tz_str: "Asia/Kolkata"
-            }, {
-                headers: { 
-                    "Content-Type": "application/json",
-                    "x-api-key": process.env.ASTRO_API_KEY 
-                }
-            });
-        };
+        // ഒരൊറ്റ റിക്വസ്റ്റ് മാത്രം
+        const astroResponse = await axios.post("https://api.freeastroapi.com/api/v2/vedic/panchang", {
+            year: year, month: month, day: day,
+            hour: 6, minute: 0, city: "Tirur",
+            lat: 10.9156, lng: 75.9236, tz_str: "Asia/Kolkata"
+        }, {
+            headers: { 
+                "Content-Type": "application/json",
+                "x-api-key": process.env.ASTRO_API_KEY 
+            }
+        });
 
-        const [astroResponseToday, astroResponseTomorrow] = await Promise.all([
-            fetchAstroData(today),
-            fetchAstroData(tomorrow)
-        ]);
-
-        const data = astroResponseToday.data;
-        const dataTomorrow = astroResponseTomorrow.data;
+        const data = astroResponse.data;
 
         const nakshatraEng = data?.nakshatra?.name || "ലഭ്യമല്ല";
         const nakshatraMal = nakshatraMap[nakshatraEng] || nakshatraEng;
@@ -134,31 +128,26 @@ app.get('/api/panchangam', async (req: Request, res: Response) => {
             const tamMonth = tamMonthMap[sunSignId] || "";
             const solarDate = Math.floor(sunDegree) + 1; 
             
-            const yearNum = today.getFullYear();
-            const monthNum = today.getMonth() + 1;
-            const dayNum = today.getDate();
-
-            let kollaVarsham = yearNum - 825;
-            if (monthNum > 8 || (monthNum === 8 && dayNum >= 17)) {
-                kollaVarsham = yearNum - 824;
+            let kollaVarsham = year - 825;
+            if (month > 8 || (month === 8 && day >= 17)) {
+                kollaVarsham = year - 824;
             }
 
             malMonthText = `കൊല്ലവർഷം ${kollaVarsham}, ${malMonth} മാസം ${solarDate} ആം തീയതി. തമിഴ് മാസം ${tamMonth} ${solarDate} ആം തീയതി. `;
         }
 
+        // ഇന്നത്തെ ബ്രാഹ്മ മുഹൂർത്തം മാത്രം
         const todayBrahma = getBrahmaMuhurtham(data?.sunrise);
-        const tomorrowBrahma = getBrahmaMuhurtham(dataTomorrow?.sunrise);
-
-        const brahmaText = (todayBrahma.start === "ലഭ്യമല്ല" || tomorrowBrahma.start === "ലഭ്യമല്ല") 
-            ? "ബ്രാഹ്മ മുഹൂർത്തം ലഭ്യമാക്കാൻ കഴിഞ്ഞില്ല." 
-            : `ഇന്നത്തെ ബ്രാഹ്മ മുഹൂർത്തം പുലർച്ചെ ${todayBrahma.start} മുതൽ ${todayBrahma.end} വരെ ആണ്. നാളത്തെ ബ്രാഹ്മ മുഹൂർത്തം പുലർച്ചെ ${tomorrowBrahma.start} മുതൽ ${tomorrowBrahma.end} വരെ ആണ്.`;
+        const brahmaText = (todayBrahma.start === "ലഭ്യമല്ല") 
+            ? "" 
+            : `ഇന്നത്തെ ബ്രാഹ്മ മുഹൂർത്തം പുലർച്ചെ ${todayBrahma.start} മുതൽ ${todayBrahma.end} വരെ ആണ്.`;
 
         const rahuText = (rahuStart === "ലഭ്യമല്ല") ? "രാഹുകാലം ലഭ്യമല്ല." : `രാഹുകാലം ${rahuStart} മുതൽ ${rahuEnd} വരെ ആണ്.`;
         const gulikaText = (gulikaStart === "ലഭ്യമല്ല") ? "ഗുളികകാലം ലഭ്യമല്ല." : `ഗുളികകാലം ${gulikaStart} മുതൽ ${gulikaEnd} വരെ ആണ്.`;
         const yamaText = (yamaStart === "ലഭ്യമല്ല") ? "യമഗണ്ഡകാലം ലഭ്യമല്ല." : `യമഗണ്ഡകാലം ${yamaStart} മുതൽ ${yamaEnd} വരെ ആണ്.`;
         const abhijitText = (abhijitStart === "ലഭ്യമല്ല") ? "അഭിജിത്ത് മുഹൂർത്തം ലഭ്യമല്ല." : `അഭിജിത്ത് മുഹൂർത്തം ${abhijitStart} മുതൽ ${abhijitEnd} വരെ ആണ്.`;
 
-        const textToSpeak = `${malMonthText} ഇന്നത്തെ പൻചാംഗം. തിഥി ${tithiMal}. നക്ഷത്രം ${nakshatraMal} ആണ്. ${rahuText} ${gulikaText} ${yamaText} ${abhijitText} ${brahmaText}`;
+        const textToSpeak = `${malMonthText} ഇന്നത്തെ പൻചാംഗം. തിഥി ${tithiMal}. നക്ഷത്രം ${nakshatraMal} ആണ്. ${brahmaText} ${rahuText} ${gulikaText} ${yamaText} ${abhijitText}`;
 
         res.json({ speech: textToSpeak });
 
