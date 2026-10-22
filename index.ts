@@ -98,7 +98,6 @@ function minsToTime(m: number): string {
 
 app.get('/api/panchangam', async (req: Request, res: Response) => {
     try {
-        // ഇന്ത്യൻ ടൈംസോൺ (IST) കൃത്യമായി എടുത്തു വർഷവും മാസവും തീയതിയും കണക്കാക്കുന്നു
         const options: Intl.DateTimeFormatOptions = { 
             timeZone: 'Asia/Kolkata', 
             year: 'numeric', 
@@ -186,13 +185,21 @@ app.get('/api/panchangam', async (req: Request, res: Response) => {
         const rahuStartRaw = data?.rahu_kalam?.start || "";
         const rahuEndRaw = data?.rahu_kalam?.end || "";
 
+        // Sunrise and Sunset raw values from API response
+        const sunriseRaw = data?.sunrise || "";
+        const sunsetRaw = data?.sunset || "";
+
         const brahmaText = (brahmaStartRaw === "ലഭ്യമല്ല") ? "" : `ഇന്നത്തെ ബ്രാഹ്മ മുഹൂർത്തം ${formatTimeSpoken(brahmaStartRaw)} മുതൽ ${formatTimeSpoken(brahmaEndRaw)} വരെ ആണ്.`;
         const rahuText = !rahuStartRaw ? "രാഹുകാലം ലഭ്യമല്ല." : `രാഹുകാലം ${formatTimeSpoken(rahuStartRaw)} മുതൽ ${formatTimeSpoken(rahuEndRaw)} വരെ ആണ്.`;
         const gulikaText = !gulikaStartRaw ? "ഗുളികകാലം ലഭ്യമല്ല." : `ഗുളികകാലം ${formatTimeSpoken(gulikaStartRaw)} മുതൽ ${formatTimeSpoken(gulikaEndRaw)} വരെ ആണ്.`;
         const yamaText = !yamaStartRaw ? "യമഗണ്ഡകാലം ലഭ്യമല്ല." : `യമഗണ്ഡകാലം ${formatTimeSpoken(yamaStartRaw)} മുതൽ ${formatTimeSpoken(yamaEndRaw)} വരെ ആണ്.`;
         const abhijitText = !abhijitStartRaw ? "അഭിജിത്ത് മുഹൂർത്തം ലഭ്യമല്ല." : `അഭിജിത്ത് മുഹൂർത്തം ${formatTimeSpoken(abhijitStartRaw)} മുതൽ ${formatTimeSpoken(abhijitEndRaw)} വരെ ആണ്.`;
+        
+        // Added Sunrise and Sunset Malayalam sentences
+        const sunriseText = !sunriseRaw ? "സൂര്യോദയം ലഭ്യമല്ല." : `ഇന്നത്തെ സൂര്യോദയം ${formatTimeSpoken(sunriseRaw)} ആണ്.`;
+        const sunsetText = !sunsetRaw ? "സൂര്യാസ്തമയം ലഭ്യമല്ല." : `ഇന്നത്തെ സൂര്യാസ്തമയം ${formatTimeSpoken(sunsetRaw)} ആണ്.`;
 
-        const textToSpeak = `${malMonthText} ഇന്നത്തെ പൻചാംഗം. തിഥി ${tithiMal}. നക്ഷത്രം ${nakshatraMal} ആണ്. ${brahmaText} ${rahuText} ${gulikaText} ${yamaText} ${abhijitText}`;
+        const textToSpeak = `${malMonthText} ഇന്നത്തെ പൻചാംഗം. തിഥി ${tithiMal}. നക്ഷത്രം ${nakshatraMal} ആണ്. ${brahmaText} ${rahuText} ${gulikaText} ${yamaText} ${abhijitText} ${sunriseText} ${sunsetText}`;
 
         res.json({ speech: textToSpeak });
 
