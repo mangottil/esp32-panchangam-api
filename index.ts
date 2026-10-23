@@ -235,21 +235,15 @@ app.get('/api/panchangam', async (req: Request, res: Response) => {
         const sunriseRaw = data?.sunrise || "";
         const sunsetRaw = data?.sunset || "";
 
-        // Exactly aligned with user's requested bar chunks
-        const brahmaText = (brahmaStartRaw === "ലഭ്യമല്ല") ? "" : `ഇന്നത്തെ ബ്രാഹ്മ മുഹൂർത്തം, പുലർച്ചെ നാല് മണി, ${numberToMalayalam(parseInt(brahmaStartRaw.split(':')[1]))} മിനിറ്റ് മുതൽ, രാവിലെ അഞ്ച് മണി ${numberToMalayalam(parseInt(brahmaEndRaw.split(':')[1]))} മിനിറ്റ്, വരെ ആണ്.`;
-        
+        const brahmaText = (brahmaStartRaw === "ലഭ്യമല്ല") ? "" : `ഇന്നത്തെ ബ്രാഹ്മ മുഹൂർത്തം, പുലർച്ചെ നാല് മണി, മുതൽ, രാവിലെ അഞ്ച് മണി വരെ ആണ്.`;
         const rahuText = !rahuStartRaw ? "രാഹുകാലം ലഭ്യമല്ല." : `രാഹുകാലം, ${formatTimeSpoken(rahuStartRaw)}, മുതൽ, ${formatTimeSpoken(rahuEndRaw)}, വരെ ആണ്.`;
-        
         const gulikaText = !gulikaStartRaw ? "ഗുളികകാലം ലഭ്യമല്ല." : `ഗുളികകാലം, ${formatTimeSpoken(gulikaStartRaw)}, മുതൽ, ${formatTimeSpoken(gulikaEndRaw)}, വരെ ആണ്.`;
-        
         const yamaText = !yamaStartRaw ? "യമഗണ്ഡകാലം ലഭ്യമല്ല." : `യമഗണ്ഡകാലം, ${formatTimeSpoken(yamaStartRaw)}, മുതൽ, ${formatTimeSpoken(yamaEndRaw)}, വരെ ആണ്.`;
-        
         const durmuhurthamText = !durmuhurthamStartRaw ? "ദുർമുഹൂർത്തം ലഭ്യമല്ല." : `ദുർമുഹൂർത്തം, ${formatTimeSpoken(durmuhurthamStartRaw)}, മുതൽ, ${formatTimeSpoken(durmuhurthamEndRaw)}, വരെ ആണ്.`;
-        
         const abhijitText = !abhijitStartRaw ? "അഭിജിത്ത് മുഹൂർത്തം ലഭ്യമല്ല." : `അഭിജിത്ത് മുഹൂർത്തം, ${formatTimeSpoken(abhijitStartRaw)}, മുതൽ, ${formatTimeSpoken(abhijitEndRaw)}, വരെ ആണ്.`;
         
         const sunriseText = !sunriseRaw ? "സൂര്യോദയം ലഭ്യമല്ല." : `ഇന്നത്തെ സൂര്യോദയം, ${formatTimeSpoken(sunriseRaw)}, ആണ്.`;
-        const sunsetText = !sunsetRaw ? "സൂര്യാസ്തമയം ലഭ്യമല്ല." : `ഇന്നത്തെ സൂര്യാസ്തമയം, ${formatTimeSpoken(sunsetText)}, ആണ്.`;
+        const sunsetText = !sunsetRaw ? "സൂര്യാസ്തമയം ലഭ്യമല്ല." : `ഇന്നത്തെ സൂര്യാസ്തമയം, ${formatTimeSpoken(sunsetRaw)}, ആണ്.`;
 
         const textToSpeak = `${malMonthText} ഇന്നത്തെ പഞ്ചാംഗം. ${pakshamText} തിഥി, ${tithiMal}. ഇന്നത്തെ നക്ഷത്രം, ${nakshatraMal} ആണ്. ${varaadhipanText} ${rithuText} ${njattuvelaText} ${brahmaText} ${rahuText} ${gulikaText} ${yamaText} ${durmuhurthamText} ${abhijitText} ${sunriseText} ${sunsetText}`;
 
