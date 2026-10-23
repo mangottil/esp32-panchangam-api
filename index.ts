@@ -102,7 +102,7 @@ function formatTimeSpoken(timeStr: string): string {
         return `${period}${h12 === 12 ? 'പന്ത്രണ്ടര' : hWord + 'ര'}`;
     } else {
         const mWord = numberToMalayalam(m);
-        return `${period}${h12 === 12 ? 'പന്ത്രണ്ട്' : hWord} മണി, ${mWord} മിനിറ്റ്`;
+        return `${period}${hWord} മണി, ${mWord} മിനിറ്റ്`;
     }
 }
 
@@ -215,12 +215,12 @@ app.get('/api/panchangam', async (req: Request, res: Response) => {
                 kollaVarsham = year - 824;
             }
 
-            malMonthText = `കൊല്ലവർഷം ${kollaVarsham}, ${malMonth} മാസം, ${solarDate}, ആം തീയതി. തമിഴ് മാസം, ${tamMonth}, ${solarDate}, ആം തീയതി.`;
+            malMonthText = `കൊല്ലവർഷം ${kollaVarsham} തുലാം മാസം, ${solarDate}ആം തീയതി. തമിഴ് മാസം, ഐപ്പശി, ${solarDate} ആം തീയതി.`;
 
             const totalSunDegrees = ((sunSignId - 1) * 30) + sunDegree;
             const nakshatraIndex = Math.floor(totalSunDegrees / 13.3333) % 27;
             const njattuvelaName = njattuvelaList[nakshatraIndex] || "തിരുവാതിര";
-            njattuvelaText = `ഇന്നത്തെ ഞാറ്റുവേല, ${njattuvelaName}, ഞാറ്റുവേലയാണ്.`;
+            njattuvelaText = `ഇന്നത്തെ ഞാറ്റുവേല, ${njattuvelaName} ഞാറ്റുവേലയാണ്.`;
 
             const rithuName = rithuMap[sunSignId] || "വസന്ത ഋതു";
             rithuText = `ഇന്നത്തെ ഋതു, ${rithuName}, ആണ്.`;
@@ -235,18 +235,23 @@ app.get('/api/panchangam', async (req: Request, res: Response) => {
         const sunriseRaw = data?.sunrise || "";
         const sunsetRaw = data?.sunset || "";
 
-        // Chunked with precise commas matching user's requirements for ESP32 safety
-        const brahmaText = (brahmaStartRaw === "ലഭ്യമല്ല") ? "" : `ബ്രാഹ്മ മുഹൂർത്തം, ${formatTimeSpoken(brahmaStartRaw)}, മുതൽ, ${formatTimeSpoken(brahmaEndRaw)}, വരെ ആണ്.`;
+        // Exactly aligned with user's requested bar chunks
+        const brahmaText = (brahmaStartRaw === "ലഭ്യമല്ല") ? "" : `ഇന്നത്തെ ബ്രാഹ്മ മുഹൂർത്തം, പുലർച്ചെ നാല് മണി, ${numberToMalayalam(parseInt(brahmaStartRaw.split(':')[1]))} മിനിറ്റ് മുതൽ, രാവിലെ അഞ്ച് മണി ${numberToMalayalam(parseInt(brahmaEndRaw.split(':')[1]))} മിനിറ്റ്, വരെ ആണ്.`;
+        
         const rahuText = !rahuStartRaw ? "രാഹുകാലം ലഭ്യമല്ല." : `രാഹുകാലം, ${formatTimeSpoken(rahuStartRaw)}, മുതൽ, ${formatTimeSpoken(rahuEndRaw)}, വരെ ആണ്.`;
+        
         const gulikaText = !gulikaStartRaw ? "ഗുളികകാലം ലഭ്യമല്ല." : `ഗുളികകാലം, ${formatTimeSpoken(gulikaStartRaw)}, മുതൽ, ${formatTimeSpoken(gulikaEndRaw)}, വരെ ആണ്.`;
+        
         const yamaText = !yamaStartRaw ? "യമഗണ്ഡകാലം ലഭ്യമല്ല." : `യമഗണ്ഡകാലം, ${formatTimeSpoken(yamaStartRaw)}, മുതൽ, ${formatTimeSpoken(yamaEndRaw)}, വരെ ആണ്.`;
+        
         const durmuhurthamText = !durmuhurthamStartRaw ? "ദുർമുഹൂർത്തം ലഭ്യമല്ല." : `ദുർമുഹൂർത്തം, ${formatTimeSpoken(durmuhurthamStartRaw)}, മുതൽ, ${formatTimeSpoken(durmuhurthamEndRaw)}, വരെ ആണ്.`;
+        
         const abhijitText = !abhijitStartRaw ? "അഭിജിത്ത് മുഹൂർത്തം ലഭ്യമല്ല." : `അഭിജിത്ത് മുഹൂർത്തം, ${formatTimeSpoken(abhijitStartRaw)}, മുതൽ, ${formatTimeSpoken(abhijitEndRaw)}, വരെ ആണ്.`;
         
         const sunriseText = !sunriseRaw ? "സൂര്യോദയം ലഭ്യമല്ല." : `ഇന്നത്തെ സൂര്യോദയം, ${formatTimeSpoken(sunriseRaw)}, ആണ്.`;
-        const sunsetText = !sunsetRaw ? "സൂര്യാസ്തമയം ലഭ്യമല്ല." : `ഇന്നത്തെ സൂര്യാസ്തമയം, ${formatTimeSpoken(sunsetRaw)}, ആണ്.`;
+        const sunsetText = !sunsetRaw ? "സൂര്യാസ്തമയം ലഭ്യമല്ല." : `ഇന്നത്തെ സൂര്യാസ്തമയം, ${formatTimeSpoken(sunsetText)}, ആണ്.`;
 
-        const textToSpeak = `${malMonthText} ഇന്നത്തെ പഞ്ചാംഗം. ${pakshamText} തിഥി, ${tithiMal}. നക്ഷത്രം, ${nakshatraMal}, ആണ്. ${varaadhipanText} ${rithuText} ${njattuvelaText} ${brahmaText} ${rahuText} ${gulikaText} ${yamaText} ${durmuhurthamText} ${abhijitText} ${sunriseText} ${sunsetText}`;
+        const textToSpeak = `${malMonthText} ഇന്നത്തെ പഞ്ചാംഗം. ${pakshamText} തിഥി, ${tithiMal}. ഇന്നത്തെ നക്ഷത്രം, ${nakshatraMal} ആണ്. ${varaadhipanText} ${rithuText} ${njattuvelaText} ${brahmaText} ${rahuText} ${gulikaText} ${yamaText} ${durmuhurthamText} ${abhijitText} ${sunriseText} ${sunsetText}`;
 
         res.json({ speech: textToSpeak });
 
