@@ -84,26 +84,6 @@ function formatTimeSpoken(timeStr: string): string {
     }
 }
 
-function formatDateTimeSpoken(dateTimeStr: string): string {
-    if (!dateTimeStr) return "";
-    try {
-        const d = new Date(dateTimeStr);
-        if (isNaN(d.getTime())) {
-            return formatTimeSpoken(dateTimeStr);
-        }
-        const dayNum = d.getDate();
-        const dayWord = numberToMalayalam(dayNum) + "ാം തീയതി";
-        
-        const hours = d.getHours();
-        const mins = d.getMinutes();
-        const timeFormatted = formatTimeSpoken(`${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`);
-        
-        return `${dayWord} ${timeFormatted}`;
-    } catch (e) {
-        return formatTimeSpoken(dateTimeStr);
-    }
-}
-
 function timeToMins(t: string): number {
     if (!t) return 0;
     const parts = t.split(':').map(Number);
@@ -149,13 +129,9 @@ app.get('/api/panchangam', async (req: Request, res: Response) => {
 
         const nakshatraEng = data?.nakshatra?.name || "ലഭ്യമല്ല";
         const nakshatraMal = nakshatraMap[nakshatraEng] || nakshatraEng;
-        const nakshatraStart = data?.nakshatra?.start || data?.nakshatra?.start_time || "";
-        const nakshatraEnd = data?.nakshatra?.end || data?.nakshatra?.end_time || "";
 
         const tithiEng = data?.tithi?.name || "ലഭ്യമല്ല";
         const tithiMal = tithiMap[tithiEng] || tithiEng;
-        const tithiStart = data?.tithi?.start || data?.tithi?.start_time || "";
-        const tithiEnd = data?.tithi?.end || data?.tithi?.end_time || "";
 
         let gulikaStartRaw = "", gulikaEndRaw = "";
         let yamaStartRaw = "", yamaEndRaw = "";
@@ -221,22 +197,7 @@ app.get('/api/panchangam', async (req: Request, res: Response) => {
         const sunriseText = !sunriseRaw ? "സൂര്യോദയം ലഭ്യമല്ല." : `ഇന്നത്തെ സൂര്യോദയം ${formatTimeSpoken(sunriseRaw)} ആണ്.`;
         const sunsetText = !sunsetRaw ? "സൂര്യാസ്തമയം ലഭ്യമല്ല." : `ഇന്നത്തെ സൂര്യാസ്തമയം ${formatTimeSpoken(sunsetRaw)} ആണ്.`;
 
-        // Formatted Nakshatra and Tithi timing announcements
-        const nakshatraTimeFormatted = (nakshatraStart && nakshatraEnd) 
-            ? `${formatDateTimeSpoken(nakshatraStart)} മുതൽ ${formatDateTimeSpoken(nakshatraEnd)} വരെ` 
-            : "";
-        const nakshatraText = nakshatraTimeFormatted 
-            ? `ഇന്നത്തെ നക്ഷത്രം ${nakshatraMal}. ${nakshatraTimeFormatted} ആണ്.` 
-            : `ഇന്നത്തെ നക്ഷത്രം ${nakshatraMal} ആണ്.`;
-
-        const tithiTimeFormatted = (tithiStart && tithiEnd) 
-            ? `${formatDateTimeSpoken(tithiStart)} മുതൽ ${formatDateTimeSpoken(tithiEnd)} വരെ` 
-            : "";
-        const tithiText = tithiTimeFormatted 
-            ? `ഇന്നത്തെ തിഥി ${tithiMal}. ${tithiTimeFormatted} ആണ്.` 
-            : `ഇന്നത്തെ തിഥി ${tithiMal} ആണ്.`;
-
-        const textToSpeak = `${malMonthText} ഇന്നത്തെ പഞ്ചാംഗം. ${tithiText} ${nakshatraText} ${brahmaText} ${rahuText} ${gulikaText} ${yamaText} ${abhijitText} ${sunriseText} ${sunsetText}`;
+        const textToSpeak = `${malMonthText} ഇന്നത്തെ പഞ്ചാംഗം. തിഥി ${tithiMal}. നക്ഷത്രം ${nakshatraMal} ആണ്. ${brahmaText} ${rahuText} ${gulikaText} ${yamaText} ${abhijitText} ${sunriseText} ${sunsetText}`;
 
         res.json({ speech: textToSpeak });
 
