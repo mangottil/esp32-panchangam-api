@@ -38,6 +38,35 @@ const tamMonthMap: { [key: number]: string } = {
     7: "ഐപ്പശി", 8: "കാർത്തിക", 9: "മാർകഴി", 10: "തൈ", 11: "മാശി", 12: "പാൻഗുനി"
 };
 
+const njattuvelaList = [
+    "അശ്വതി", "ഭരണി", "കാർത്തിക", "രോഹിണി", "മകയിരം", "തിരുവാതിര",
+    "പുണർതം", "പൂയം", "ആയില്യം", "മകം", "പൂരം", "ഉത്രം",
+    "അത്തം", "ചിത്തിര", "ചോതി", "വിശാഖം", "അനിഴം", "തൃക്കേട്ട",
+    "മൂലം", "പൂരാടം", "ഉത്രാടം", "തിരുവോണം", "അവിട്ടം", "ചതയം",
+    "പൂരൂരുട്ടാതി", "ഉത്തൃട്ടാതി", "രേവതി"
+];
+
+// Rithu mapping based on Malayalam months (1 to 12)
+const rithuMap: { [key: number]: string } = {
+    1: "വസന്ത ഋതു", 2: "വസന്ത ഋതു",
+    3: "ഗ്രീഷ്മ ഋതു", 4: "ഗ്രീഷ്മ ഋതു",
+    5: "വർഷ ഋതു", 6: "വർഷ ഋതു",
+    7: "ശരത് ഋതു", 8: "ശരത് ഋതു",
+    9: "ഹേമന്ത ഋതു", 10: "ഹേമന്ത ഋതു",
+    11: "ശിശിര ഋതു", 12: "ശിശിര ഋതു"
+};
+
+// Varaadhipan mapping based on weekday number (1=Sun to 7=Sat)
+const varaadhipanMap: { [key: number]: string } = {
+    1: "സൂര്യൻ",
+    2: "ചന്ദ്രൻ",
+    3: "ചൊവ്വ",
+    4: "ബുധൻ",
+    5: "വ്യാഴം",
+    6: "വെള്ളി",
+    7: "ശനി"
+};
+
 const numToMal: { [key: number]: string } = {
     0: "പൂജ്യം", 1: "ഒന്ന്", 2: "രണ്ട്", 3: "മൂന്ന്", 4: "നാല്", 5: "അഞ്ച്",
     6: "ആറ്", 7: "ഏഴ്", 8: "എട്ട്", 9: "ഒൻപത്", 10: "പത്ത്",
@@ -133,9 +162,18 @@ app.get('/api/panchangam', async (req: Request, res: Response) => {
         const tithiEng = data?.tithi?.name || "ലഭ്യമല്ല";
         const tithiMal = tithiMap[tithiEng] || tithiEng;
 
+        const shuklaTithis = ["Pratipada", "Dwitiya", "Tritiya", "Chaturthi", "Panchami", "Shashthi", "Saptami", "Ashtami", "Navami", "Dashami", "Ekadashi", "Dwadashi", "Trayodashi", "Chaturdashi", "Purnima"];
+        const pakshamText = shuklaTithis.includes(tithiEng) ? "വെളുത്ത പക്ഷം" : "കറുത്ത പക്ഷം";
+
+        // Varaadhipan determination
+        const weekdayNum = data?.weekday?.number || 1;
+        const varaadhipanName = varaadhipanMap[weekdayNum] || "";
+        const varaadhipanText = varaadhipanName ? `ഇന്നത്തെ വാരാധിപൻ ${varaadhipanName} ആണ്.` : "";
+
         let gulikaStartRaw = "", gulikaEndRaw = "";
         let yamaStartRaw = "", yamaEndRaw = "";
         let abhijitStartRaw = "", abhijitEndRaw = "";
+        let durmuhurthamStartRaw = "", durmuhurthamEndRaw = "";
 
         if (data?.sunrise && data?.sunset && data?.weekday?.number) {
             const srMins = timeToMins(data.sunrise);
@@ -159,12 +197,28 @@ app.get('/api/panchangam', async (req: Request, res: Response) => {
             const midday = srMins + (dayLength / 2);
             abhijitStartRaw = minsToTime(midday - (muhurtaLength / 2));
             abhijitEndRaw = minsToTime(midday + (muhurtaLength / 2));
+
+            const durmuhurthamSlots: { [key: number]: number } = {
+                0: 13, // Sunday
+                1: 8,  // Monday
+                2: 7,  // Tuesday
+                3: 11, // Wednesday
+                4: 6,  // Thursday
+                5: 9,  // Friday
+                6: 10  // Saturday
+            };
+            const slot = durmuhurthamSlots[dayIndex] || 1;
+            const durStartMin = srMins + ((slot - 1) * muhurtaLength);
+            durmuhurthamStartRaw = minsToTime(durStartMin);
+            durmuhurthamEndRaw = minsToTime(durStartMin + muhurtaLength);
         }
 
-        const sunSignId = data?.request_time_panchang?.sun_sign?.sign_id;
+        const sunSignId = data?.request_time_panchang?.sun_sign?.sun_sign_id || data?.request_time_panchang?.sun_sign?.sign_id;
         const sunDegree = data?.request_time_panchang?.sun_sign?.degree;
 
         let malMonthText = "";
+        let njattuvelaText = "";
+        let rithuText = "";
         if (sunSignId && sunDegree !== undefined) {
             const malMonth = malMonthMap[sunSignId] || "";
             const tamMonth = tamMonthMap[sunSignId] || "";
@@ -176,6 +230,14 @@ app.get('/api/panchangam', async (req: Request, res: Response) => {
             }
 
             malMonthText = `കൊല്ലവർഷം ${kollaVarsham}, ${malMonth} മാസം ${solarDate} ആം തീയതി. തമിഴ് മാസം ${tamMonth} ${solarDate} ആം തീയതി. `;
+
+            const totalSunDegrees = ((sunSignId - 1) * 30) + sunDegree;
+            const nakshatraIndex = Math.floor(totalSunDegrees / 13.3333) % 27;
+            const njattuvelaName = njattuvelaList[nakshatraIndex] || "തിരുവാതിര";
+            njattuvelaText = `ഇന്നത്തെ ഞാറ്റുവേല ${njattuvelaName} ഞാറ്റുവേലയാണ്.`;
+
+            const rithuName = rithuMap[sunSignId] || "വസന്ത ഋതു";
+            rithuText = `ഇന്നത്തെ ഋതു ${rithuName} ആണ്.`;
         }
 
         const srMins = timeToMins(data?.sunrise);
@@ -192,12 +254,14 @@ app.get('/api/panchangam', async (req: Request, res: Response) => {
         const rahuText = !rahuStartRaw ? "രാഹുകാലം ലഭ്യമല്ല." : `രാഹുകാലം ${formatTimeSpoken(rahuStartRaw)} മുതൽ ${formatTimeSpoken(rahuEndRaw)} വരെ ആണ്.`;
         const gulikaText = !gulikaStartRaw ? "ഗുളികകാലം ലഭ്യമല്ല." : `ഗുളികകാലം ${formatTimeSpoken(gulikaStartRaw)} മുതൽ ${formatTimeSpoken(gulikaEndRaw)} വരെ ആണ്.`;
         const yamaText = !yamaStartRaw ? "യമഗണ്ഡകാലം ലഭ്യമല്ല." : `യമഗണ്ഡകാലം ${formatTimeSpoken(yamaStartRaw)} മുതൽ ${formatTimeSpoken(yamaEndRaw)} വരെ ആണ്.`;
+        const durmuhurthamText = !durmuhurthamStartRaw ? "ദുർമുഹൂർത്തം ലഭ്യമല്ല." : `ദുർമുഹൂർത്തം ${formatTimeSpoken(durmuhurthamStartRaw)} മുതൽ ${formatTimeSpoken(durmuhurthamEndRaw)} വരെ ആണ്.`;
         const abhijitText = !abhijitStartRaw ? "അഭിജിത്ത് മുഹൂർത്തം ലഭ്യമല്ല." : `അഭിജിത്ത് മുഹൂർത്തം ${formatTimeSpoken(abhijitStartRaw)} മുതൽ ${formatTimeSpoken(abhijitEndRaw)} വരെ ആണ്.`;
         
         const sunriseText = !sunriseRaw ? "സൂര്യോദയം ലഭ്യമല്ല." : `ഇന്നത്തെ സൂര്യോദയം ${formatTimeSpoken(sunriseRaw)} ആണ്.`;
         const sunsetText = !sunsetRaw ? "സൂര്യാസ്തമയം ലഭ്യമല്ല." : `ഇന്നത്തെ സൂര്യാസ്തമയം ${formatTimeSpoken(sunsetRaw)} ആണ്.`;
 
-        const textToSpeak = `${malMonthText} ഇന്നത്തെ പഞ്ചാംഗം. തിഥി ${tithiMal}. നക്ഷത്രം ${nakshatraMal} ആണ്. ${brahmaText} ${rahuText} ${gulikaText} ${yamaText} ${abhijitText} ${sunriseText} ${sunsetText}`;
+        // Full speech combining all details including Varaadhipan and Rithu
+        const textToSpeak = `${malMonthText} ഇന്നത്തെ പഞ്ചാംഗം. ${pakshamText}. തിഥി ${tithiMal}. നക്ഷത്രം ${nakshatraMal} ആണ്. ${varaadhipanText} ${rithuText} ${njattuvelaText} ${brahmaText} ${rahuText} ${gulikaText} ${yamaText} ${durmuhurthamText} ${abhijitText} ${sunriseText} ${sunsetText}`;
 
         res.json({ speech: textToSpeak });
 
