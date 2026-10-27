@@ -28,12 +28,6 @@ const tithiMap: { [key: string]: string } = {
     "Purnima": "പൗർണ്ണമി", "Amavasya": "അമാവാസി"
 };
 
-const rasiMap: { [key: string]: string } = {
-    "Aries": "മേടം", "Taurus": "ഇടവം", "Gemini": "മിഥുനം", "Cancer": "കർക്കടകം",
-    "Leo": "ചിങ്ങം", "Virgo": "കന്നി", "Libra": "തുലാം", "Scorpio": "വൃശ്ചികം",
-    "Sagittarius": "ധനു", "Capricorn": "മകരം", "Aquarius": "കുംഭം", "Pisces": "മീനം"
-};
-
 const malMonthMap: { [key: number]: string } = {
     1: "മേടം", 2: "ഇടവം", 3: "മിഥുനം", 4: "കർക്കടകം", 5: "ചിങ്ങം", 6: "കന്നി",
     7: "തുലാം", 8: "വൃശ്ചികം", 9: "ധനു", 10: "മകരം", 11: "കുംഭം", 12: "മീനം"
@@ -161,7 +155,7 @@ app.get('/api/panchangam', async (req: Request, res: Response) => {
         const tithiEng = data?.tithi?.name || "ലഭ്യമല്ല";
         const tithiMal = tithiMap[tithiEng] || tithiEng;
 
-        // അഡീഷണൽ വിശേഷങ്ങൾ (ചുരുങ്ങിയ വാക്കുകളിൽ)
+        // തിഥി അടിസ്ഥാനമാക്കിയുള്ള വിശേഷ വ്രത ദിവസങ്ങൾ
         let specialEventText = "";
         if (tithiEng === "Purnima") specialEventText = "ഇന്ന് പൗർണ്ണമി.";
         else if (tithiEng === "Amavasya") specialEventText = "ഇന്ന് അമാവാസി.";
@@ -177,11 +171,6 @@ app.get('/api/panchangam', async (req: Request, res: Response) => {
         const weekdayNum = data?.weekday?.number || 1;
         const varaadhipanName = varaadhipanMap[weekdayNum] || "";
         const varaadhipanText = varaadhipanName ? `ഇന്നത്തെ വാരാധിപൻ, ${varaadhipanName}, ആണ്.` : "";
-
-        // അഡീഷണൽ ചന്ദ്രരാശി വിവരം
-        const moonSignEng = data?.chandra_rasi?.name || data?.moon_sign?.name || "";
-        const moonSignMal = rasiMap[moonSignEng] || "";
-        const moonSignText = moonSignMal ? `ചന്ദ്രരാശി ${moonSignMal}.` : "";
 
         let gulikaStartRaw = "", gulikaEndRaw = "";
         let yamaStartRaw = "", yamaEndRaw = "";
@@ -248,6 +237,7 @@ app.get('/api/panchangam', async (req: Request, res: Response) => {
         }
 
         const srMins = timeToMins(data?.sunrise);
+        const ssMins = timeToMins(data?.sunset);
         const brahmaStartRaw = minsToTime(srMins - 96 < 0 ? srMins - 96 + 1440 : srMins - 96);
         const brahmaEndRaw = minsToTime(srMins - 48 < 0 ? srMins - 48 + 1440 : srMins - 48);
 
@@ -255,6 +245,17 @@ app.get('/api/panchangam', async (req: Request, res: Response) => {
         const rahuEndRaw = data?.rahu_kalam?.end || "";
         const sunriseRaw = data?.sunrise || "";
         const sunsetRaw = data?.sunset || "";
+
+        // ദിനമാനം (പകലന്റെ ദൈർഘ്യം) കണക്കാക്കൽ
+        let dinamanamText = "";
+        if (srMins > 0 && ssMins > srMins) {
+            const dayLengthMins = ssMins - srMins;
+            const dHours = Math.floor(dayLengthMins / 60);
+            const dMins = dayLengthMins % 60;
+            const hWord = numberToMalayalam(dHours);
+            const mWord = numberToMalayalam(dMins);
+            dinamanamText = `ഇന്നത്തെ ദിനമാനം, അഥവാ പകലൻ്റെ ദൈർഘ്യം, ${hWord} മണിക്കൂർ, ${mWord} മിനിറ്റ്, ആണ്.`;
+        }
 
         const brahmaText = (brahmaStartRaw === "ലഭ്യമല്ല") ? "" : `ഇന്നത്തെ ബ്രാഹ്മ മുഹൂർത്തം, പുലർച്ചെ നാല് മണി, മുതൽ, രാവിലെ അഞ്ച് മണി വരെ ആണ്.`;
         const rahuText = !rahuStartRaw ? "രാഹുകാലം ലഭ്യമല്ല." : `രാഹുകാലം, ${formatTimeSpoken(rahuStartRaw)}, മുതൽ, ${formatTimeSpoken(rahuEndRaw)}, വരെ ആണ്.`;
@@ -266,8 +267,8 @@ app.get('/api/panchangam', async (req: Request, res: Response) => {
         const sunriseText = !sunriseRaw ? "സൂര്യോദയം ലഭ്യമല്ല." : `ഇന്നത്തെ സൂര്യോദയം, ${formatTimeSpoken(sunriseRaw)}, ആണ്.`;
         const sunsetText = !sunsetRaw ? "സൂര്യാസ്തമയം ലഭ്യമല്ല." : `ഇന്നത്തെ സൂര്യാസ്തമയം, ${formatTimeSpoken(sunsetRaw)}, ആണ്.`;
 
-        // നിലവിലുള്ള കോഡിന്റെ ഘടന നിലനിർത്തിക്കൊണ്ട് പുതിയ വിവരങ്ങൾ കൃത്യമായി കോർത്തിരിക്കുന്നു
-        const textToSpeak = `${malMonthText} ഇന്നത്തെ പഞ്ചാംഗം. ${specialEventText} ${pakshamText} തിഥി, ${tithiMal}. ഇന്നത്തെ നക്ഷത്രം, ${nakshatraMal} ആണ്. ${moonSignText} ${varaadhipanText} ${rithuText} ${njattuvelaText} ${brahmaText} ${rahuText} ${gulikaText} ${yamaText} ${durmuhurthamText} ${abhijitText} ${sunriseText} ${sunsetText}`;
+        // ഏറ്റവും അവസാനം ദിനമാനം (പകലന്റെ ദൈർഘ്യം) വരുന്ന രീതിയിൽ ക്രമീകരിച്ചിരിക്കുന്നു
+        const textToSpeak = `${malMonthText} ഇന്നത്തെ പഞ്ചാംഗം. ${specialEventText} ${pakshamText} തിഥി, ${tithiMal}. ഇന്നത്തെ നക്ഷത്രം, ${nakshatraMal} ആണ്. ${varaadhipanText} ${rithuText} ${njattuvelaText} ${brahmaText} ${rahuText} ${gulikaText} ${yamaText} ${durmuhurthamText} ${abhijitText} ${sunriseText} ${sunsetText} ${dinamanamText}`;
 
         res.json({ speech: textToSpeak });
 
