@@ -28,6 +28,12 @@ const tithiMap: { [key: string]: string } = {
     "Purnima": "പൗർണ്ണമി", "Amavasya": "അമാവാസി"
 };
 
+const rasiMap: { [key: string]: string } = {
+    "Aries": "മേടം", "Taurus": "ഇടവം", "Gemini": "മിഥുനം", "Cancer": "കർക്കടകം",
+    "Leo": "ചിങ്ങം", "Virgo": "കന്നി", "Libra": "തുലാം", "Scorpio": "വൃശ്ചികം",
+    "Sagittarius": "ധനു", "Capricorn": "മകരം", "Aquarius": "കുംഭം", "Pisces": "മീനം"
+};
+
 const malMonthMap: { [key: number]: string } = {
     1: "മേടം", 2: "ഇടവം", 3: "മിഥുനം", 4: "കർക്കടകം", 5: "ചിങ്ങം", 6: "കന്നി",
     7: "തുലാം", 8: "വൃശ്ചികം", 9: "ധനു", 10: "മകരം", 11: "കുംഭം", 12: "മീനം"
@@ -155,12 +161,27 @@ app.get('/api/panchangam', async (req: Request, res: Response) => {
         const tithiEng = data?.tithi?.name || "ലഭ്യമല്ല";
         const tithiMal = tithiMap[tithiEng] || tithiEng;
 
+        // അഡീഷണൽ വിശേഷങ്ങൾ (ചുരുങ്ങിയ വാക്കുകളിൽ)
+        let specialEventText = "";
+        if (tithiEng === "Purnima") specialEventText = "ഇന്ന് പൗർണ്ണമി.";
+        else if (tithiEng === "Amavasya") specialEventText = "ഇന്ന് അമാവാസി.";
+        else if (tithiEng === "Ekadashi") specialEventText = "ഇന്ന് ഏകാദശി.";
+        else if (tithiEng === "Trayodashi") specialEventText = "ഇന്ന് പ്രദോഷം.";
+        else if (tithiEng === "Chaturthi") specialEventText = "ഇന്ന് ചതുർത്ഥി.";
+        else if (tithiEng === "Shashthi") specialEventText = "ഇന്ന് ഷഷ്ഠി.";
+        else if (tithiEng === "Ashtami") specialEventText = "ഇന്ന് അഷ്ടമി.";
+
         const shuklaTithis = ["Pratipada", "Dwitiya", "Tritiya", "Chaturthi", "Panchami", "Shashthi", "Saptami", "Ashtami", "Navami", "Dashami", "Ekadashi", "Dwadashi", "Trayodashi", "Chaturdashi", "Purnima"];
         const pakshamText = shuklaTithis.includes(tithiEng) ? "വെളുത്ത പക്ഷം." : "കറുത്ത പക്ഷം.";
 
         const weekdayNum = data?.weekday?.number || 1;
         const varaadhipanName = varaadhipanMap[weekdayNum] || "";
         const varaadhipanText = varaadhipanName ? `ഇന്നത്തെ വാരാധിപൻ, ${varaadhipanName}, ആണ്.` : "";
+
+        // അഡീഷണൽ ചന്ദ്രരാശി വിവരം
+        const moonSignEng = data?.chandra_rasi?.name || data?.moon_sign?.name || "";
+        const moonSignMal = rasiMap[moonSignEng] || "";
+        const moonSignText = moonSignMal ? `ചന്ദ്രരാശി ${moonSignMal}.` : "";
 
         let gulikaStartRaw = "", gulikaEndRaw = "";
         let yamaStartRaw = "", yamaEndRaw = "";
@@ -245,7 +266,8 @@ app.get('/api/panchangam', async (req: Request, res: Response) => {
         const sunriseText = !sunriseRaw ? "സൂര്യോദയം ലഭ്യമല്ല." : `ഇന്നത്തെ സൂര്യോദയം, ${formatTimeSpoken(sunriseRaw)}, ആണ്.`;
         const sunsetText = !sunsetRaw ? "സൂര്യാസ്തമയം ലഭ്യമല്ല." : `ഇന്നത്തെ സൂര്യാസ്തമയം, ${formatTimeSpoken(sunsetRaw)}, ആണ്.`;
 
-        const textToSpeak = `${malMonthText} ഇന്നത്തെ പഞ്ചാംഗം. ${pakshamText} തിഥി, ${tithiMal}. ഇന്നത്തെ നക്ഷത്രം, ${nakshatraMal} ആണ്. ${varaadhipanText} ${rithuText} ${njattuvelaText} ${brahmaText} ${rahuText} ${gulikaText} ${yamaText} ${durmuhurthamText} ${abhijitText} ${sunriseText} ${sunsetText}`;
+        // നിലവിലുള്ള കോഡിന്റെ ഘടന നിലനിർത്തിക്കൊണ്ട് പുതിയ വിവരങ്ങൾ കൃത്യമായി കോർത്തിരിക്കുന്നു
+        const textToSpeak = `${malMonthText} ഇന്നത്തെ പഞ്ചാംഗം. ${specialEventText} ${pakshamText} തിഥി, ${tithiMal}. ഇന്നത്തെ നക്ഷത്രം, ${nakshatraMal} ആണ്. ${moonSignText} ${varaadhipanText} ${rithuText} ${njattuvelaText} ${brahmaText} ${rahuText} ${gulikaText} ${yamaText} ${durmuhurthamText} ${abhijitText} ${sunriseText} ${sunsetText}`;
 
         res.json({ speech: textToSpeak });
 
