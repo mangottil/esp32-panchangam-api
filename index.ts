@@ -5,7 +5,7 @@ const app = express();
 app.use(express.json());
 
 const nakshatraMap: { [key: string]: string } = {
-    "Ashwini": "അശ്വതി", "Bharani": "ഭരണി", "Krittika": "കാർത്തിക",
+    "Ashwini": "അശ്വതി", "Bharani": "ഭരണി", "Krittika": "കാർത്തിക", "Kritika": "കാർത്തിക",
     "Rohini": "രോഹിണി", "Mrigashirsha": "മകയിരം", "Ardra": "തിരുവാതിര",
     "Punarvasu": "പുണർതം", "Pushya": "പൂയം", "Ashlesha": "ആയില്യം",
     "Magha": "മകം", "Purva Phalguni": "പൂരം", "Poorva Phalguni": "പൂരം", 
@@ -102,7 +102,7 @@ function formatTimeSpoken(timeStr: string): string {
         return `${period}${h12 === 12 ? 'പന്ത്രണ്ടര' : hWord + 'ര'}`;
     } else {
         const mWord = numberToMalayalam(m);
-        return `${period}${hWord} മണി, ${mWord} മിനിറ്റ്`;
+        return `${period}${h12} മണി, ${mWord} മിനിറ്റ്`;
     }
 }
 
@@ -215,7 +215,7 @@ app.get('/api/panchangam', async (req: Request, res: Response) => {
                 kollaVarsham = year - 824;
             }
 
-            malMonthText = `കൊല്ലവർഷം ${kollaVarsham} തുലാം മാസം, ${solarDate}ആം തീയതി. തമിഴ് മാസം, ഐപ്പശി, ${solarDate} ആം തീയതി.`;
+            malMonthText = `കൊല്ലവർഷം ${kollaVarsham} ${malMonth} മാസം, ${solarDate}ആം തീയതി. തമിഴ് മാസം, ${tamMonth}, ${solarDate} ആം തീയതി.`;
 
             const totalSunDegrees = ((sunSignId - 1) * 30) + sunDegree;
             const nakshatraIndex = Math.floor(totalSunDegrees / 13.3333) % 27;
