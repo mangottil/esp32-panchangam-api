@@ -288,8 +288,8 @@ interface EphemPoint {
 }
 
 const monthAbbrToNum: { [key: string]: number } = {
-    Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5,
-    Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11
+    JAN: 0, FEB: 1, MAR: 2, APR: 3, MAY: 4, JUN: 5,
+    JUL: 6, AUG: 7, SEP: 8, OCT: 9, NOV: 10, DEC: 11
 };
 
 function getLahiriAyanamsa(utcMs: number): number {
@@ -317,6 +317,7 @@ function getLahiriAyanamsa(utcMs: number): number {
     return meanAyanamsa + (deltaPsiArcsec / 3600.0);
 }
 
+// NASA Horizons Observer Ephemeris (QUANTITIES='31') ലൈനുകൾ കൃത്യമായി വായിക്കുന്ന ഫംഗ്ഷൻ
 function parseHorizonsEphemeris(resultText: string): EphemPoint[] {
     const soeIdx = resultText.indexOf("$$SOE");
     const eoeIdx = resultText.indexOf("$$EOE");
@@ -328,20 +329,24 @@ function parseHorizonsEphemeris(resultText: string): EphemPoint[] {
     for (const rawLine of lines) {
         const line = rawLine.trim();
         if (!line) continue;
-        const match = line.match(/^(\d{4})-([A-Za-z]{3})-(\d{2})\s+(\d{2}):(\d{2})\s+([+-]?\d+\.\d+)/);
-        if (match) {
-            const yr = parseInt(match[1], 10);
-            const mo = monthAbbrToNum[match[2]];
-            const dy = parseInt(match[3], 10);
-            const hr = parseInt(match[4], 10);
-            const mn = parseInt(match[5], 10);
-            const tropLon = parseFloat(match[6]);
 
-            const utcMs = Date.UTC(yr, mo, dy, hr, mn, 0);
-            const ayanamsa = getLahiriAyanamsa(utcMs);
-            const sidLon = ((tropLon - ayanamsa) % 360 + 360) % 360;
-            points.push({ utcMs, sidLon });
-        }
+        const dtMatch = line.match(/^(\d{4})-([A-Za-z]{3})-(\d{2})\s+(\d{2}):(\d{2})(?::(\d{2}))?\s+([+-]?\d+\.\d+)/);
+        if (!dtMatch) continue;
+
+        const yr = parseInt(dtMatch[1], 10);
+        const mo = monthAbbrToNum[dtMatch[2].toUpperCase()];
+        const dy = parseInt(dtMatch[3], 10);
+        const hr = parseInt(dtMatch[4], 10);
+        const mn = parseInt(dtMatch[5], 10);
+        const sc = dtMatch[6] ? parseInt(dtMatch[6], 10) : 0;
+        const tropLon = parseFloat(dtMatch[7]);
+
+        if (mo === undefined || isNaN(tropLon)) continue;
+
+        const utcMs = Date.UTC(yr, mo, dy, hr, mn, sc);
+        const ayanamsa = getLahiriAyanamsa(utcMs);
+        const sidLon = ((tropLon - ayanamsa) % 360 + 360) % 360;
+        points.push({ utcMs, sidLon });
     }
     return points;
 }
@@ -404,64 +409,26 @@ function findCrossingMs(
     return refMs;
 }
 
-function parseMoonRiseSet(resultText: string, year: number, month: number, day: number): { moonrise: string; moonset: string } {
-    const soeIdx = resultText.indexOf("$$SOE");
-    const eoeIdx = resultText.indexOf("$$EOE");
-    if (soeIdx === -1 || eoeIdx === -1) return { moonrise: "", moonset: "" };
-
-    const lines = resultText.slice(soeIdx + 5, eoeIdx).trim().split('\n');
-    let moonrise = "";
-    let moonset = "";
-
-    for (const rawLine of lines) {
-        const line = rawLine.trim();
-        if (!line) continue;
-        const match = line.match(/^(\d{4})-([A-Za-z]{3})-(\d{2})\s+(\d{2}):(\d{2})\s+(?:[*CNAm]\s*)?([rts])(?:\s|$)/);
-        if (match) {
-            const yr = parseInt(match[1], 10);
-            const mo = monthAbbrToNum[match[2]];
-            const dy = parseInt(match[3], 10);
-            const hr = parseInt(match[4], 10);
-            const mn = parseInt(match[5], 10);
-            const eventType = match[6];
-
-            const utcMs = Date.UTC(yr, mo, dy, hr, mn, 0);
-            const istMs = utcMs + (5.5 * 3600 * 1000);
-            const d = new Date(istMs);
-
-            if (d.getUTCFullYear() === year && (d.getUTCMonth() + 1) === month && d.getUTCDate() === day) {
-                const hhmm = `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`;
-                if (eventType === 'r' && !moonrise) moonrise = hhmm;
-                if (eventType === 's' && !moonset) moonset = hhmm;
-            }
-        }
-    }
-    return { moonrise, moonset };
-}
-
 function formatDateStr(utcMs: number): string {
     const d = new Date(utcMs);
     return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
 }
 
-async function fetchNasaPanchangData(year: number, month: number, day: number, lat: number, lng: number) {
+async function fetchNasaPanchangData(year: number, month: number, day: number) {
     const defaultSunriseUtcMs = Date.UTC(year, month - 1, day, 0, 30, 0);
     const startDateStr = formatDateStr(defaultSunriseUtcMs - 36 * 3600 * 1000);
     const stopDateStr = formatDateStr(defaultSunriseUtcMs + 48 * 3600 * 1000);
 
     const moonUrl = `https://ssd.jpl.nasa.gov/api/horizons.api?format=json&COMMAND='301'&OBJ_DATA='NO'&MAKE_EPHEM='YES'&EPHEM_TYPE='OBSERVER'&CENTER='500@399'&START_TIME='${startDateStr}%2000:00'&STOP_TIME='${stopDateStr}%2000:00'&STEP_SIZE='15m'&QUANTITIES='31'`;
     const sunUrl = `https://ssd.jpl.nasa.gov/api/horizons.api?format=json&COMMAND='10'&OBJ_DATA='NO'&MAKE_EPHEM='YES'&EPHEM_TYPE='OBSERVER'&CENTER='500@399'&START_TIME='${startDateStr}%2000:00'&STOP_TIME='${stopDateStr}%2000:00'&STEP_SIZE='15m'&QUANTITIES='31'`;
-    const rtsUrl = `https://ssd.jpl.nasa.gov/api/horizons.api?format=json&COMMAND='301'&OBJ_DATA='NO'&MAKE_EPHEM='YES'&EPHEM_TYPE='OBSERVER'&CENTER='coord@399'&COORD_TYPE='GEODETIC'&SITE_COORD='${lng},${lat},0'&START_TIME='${startDateStr}%2000:00'&STOP_TIME='${stopDateStr}%2000:00'&STEP_SIZE='10m'&QUANTITIES='4'&RISE_TRANS='RTS'`;
 
-    const [moonRes, sunRes, rtsRes] = await Promise.all([
-        axios.get(moonUrl, { timeout: 12000 }),
-        axios.get(sunUrl, { timeout: 12000 }),
-        axios.get(rtsUrl, { timeout: 12000 })
+    const [moonRes, sunRes] = await Promise.all([
+        axios.get(moonUrl, { timeout: 15000 }),
+        axios.get(sunUrl, { timeout: 15000 })
     ]);
 
     const moonSeries = parseHorizonsEphemeris(moonRes.data?.result || "");
     const sunSeries = parseHorizonsEphemeris(sunRes.data?.result || "");
-    const rtsData = parseMoonRiseSet(rtsRes.data?.result || "", year, month, day);
 
     if (moonSeries.length < 10 || sunSeries.length < 10) {
         return null;
@@ -487,9 +454,7 @@ async function fetchNasaPanchangData(year: number, month: number, day: number, l
         moonSeries,
         sunSeries,
         tithiDiffSeries,
-        yogaSumSeries,
-        moonrise: rtsData.moonrise,
-        moonset: rtsData.moonset
+        yogaSumSeries
     };
 }
 
@@ -514,7 +479,6 @@ app.get('/api/panchangam', async (req: Request, res: Response) => {
         const lat = 10.9156;
         const lng = 75.9236;
 
-        // നിലവിലെ API-യും NASA JPL Horizons API-യും ഒരേസമയം വിളിക്കുന്നു
         const [astroResponse, nasaData] = await Promise.all([
             axios.post("https://api.freeastroapi.com/api/v2/vedic/panchang", {
                 year: year, month: month, day: day,
@@ -526,7 +490,7 @@ app.get('/api/panchangam', async (req: Request, res: Response) => {
                     "x-api-key": process.env.ASTRO_API_KEY 
                 }
             }),
-            fetchNasaPanchangData(year, month, day, lat, lng).catch((err) => {
+            fetchNasaPanchangData(year, month, day).catch((err) => {
                 console.error("NASA JPL Horizons fallback triggered:", err.message);
                 return null;
             })
@@ -640,8 +604,6 @@ app.get('/api/panchangam', async (req: Request, res: Response) => {
         // ==========================================
         let ayanamText = "";
         let sankrantiText = "";
-        let moonriseText = "";
-        let moonsetText = "";
         let illuminationText = "";
         let specialEventText = "";
         let pakshamText = "";
@@ -666,6 +628,9 @@ app.get('/api/panchangam', async (req: Request, res: Response) => {
         };
         const dishaName = dishaShoolaMap[dayIndex] || "കിഴക്ക്";
         const dishaShoolaText = `ഇന്നത്തെ ദിക്ശൂലം, അഥവാ ദീർഘയാത്രകൾ, ഒഴിവാക്കേണ്ട ദിശ, ${dishaName}, ആണ്.`;
+
+        let activeTithiIdx = -1;
+        let activeNakIdx = -1;
 
         if (nasaData) {
             let actualSunriseUtcMs = nasaData.defaultSunriseUtcMs;
@@ -698,18 +663,13 @@ app.get('/api/panchangam', async (req: Request, res: Response) => {
                 sankrantiText = `ഇന്ന്, ${skFmt.timeText}, സമയത്ത്, ${rashiListMal[rashiEnd]} സംക്രമം, നടക്കുന്നു.`;
             }
 
-            // B. ചന്ദ്രോദയം, ചന്ദ്രാസ്തമയം, പ്രകാശമാനത
-            if (nasaData.moonrise) {
-                moonriseText = `ഇന്നത്തെ ചന്ദ്രോദയം, ${formatTimeSpoken(nasaData.moonrise)}, ആണ്.`;
-            }
-            if (nasaData.moonset) {
-                moonsetText = `ഇന്നത്തെ ചന്ദ്രാസ്തമയം, ${formatTimeSpoken(nasaData.moonset)}, ആണ്.`;
-            }
+            // B. ചന്ദ്രന്റെ പ്രകാശമാനത
             const illumPct = Math.round(((1 - Math.cos((tithiDiff * Math.PI) / 180)) / 2) * 100);
             illuminationText = `ഇന്ന് ചന്ദ്രൻ, ${numberToMalayalam(illumPct)}, ശതമാനം പ്രകാശമാനമാണ്.`;
 
-            // C. പക്ഷവും തിഥിയും + വിശേഷ വ്രതങ്ങൾ
+            // C. പക്ഷവും തിഥിയും
             const tithiIdx = Math.floor(tithiDiff / 12.0) % 30;
+            activeTithiIdx = tithiIdx;
             const tithiNameMal = tithiListMal[tithiIdx] || "പ്രഥമ";
             pakshamText = tithiIdx < 15 ? "വെളുത്ത പക്ഷം." : "കറുത്ത പക്ഷം.";
 
@@ -723,6 +683,7 @@ app.get('/api/panchangam', async (req: Request, res: Response) => {
             // D. നക്ഷത്രം, പാദം, ഉദയാൽപരം നാഴിക-വിനാഴിക
             const nakSpan = 360.0 / 27.0;
             const nakIdx = Math.floor(moonLon / nakSpan) % 27;
+            activeNakIdx = nakIdx;
             const nakNameMal = nakshatraListMal[nakIdx];
             const padaNum = Math.floor((moonLon % nakSpan) / (nakSpan / 4.0)) + 1;
             const padaWords: { [key: number]: string } = {
@@ -739,10 +700,9 @@ app.get('/api/panchangam', async (req: Request, res: Response) => {
                 ? `ഇന്നത്തെ നക്ഷത്രം, ${nakNameMal}, ${padaWords[padaNum]}, ആണ്. ${udayalparamText} ${nakNameMal} നക്ഷത്രം, ആരംഭം, ${nStartFmt.fullText}, മുതൽ. അവസാനം, ${nEndFmt.fullText}, വരെ ആണ്.`
                 : `ഇന്നത്തെ നക്ഷത്രം, ${nakNameMal}, ${padaWords[padaNum]}, ആണ്. ${nakNameMal} നക്ഷത്രം, ആരംഭം, ${nStartFmt.fullText}, മുതൽ. അവസാനം, ${nEndFmt.fullText}, വരെ ആണ്.`;
 
-            // ഇന്നത്തെ വ്രതങ്ങൾ (തിഥി & നക്ഷത്ര വ്രതങ്ങൾ ഉള്ള ദിവസങ്ങളിൽ മാത്രം)
+            // ഇന്നത്തെ വ്രതങ്ങൾ (പിതൃതർപ്പണം ഒഴിവാക്കി)
             const vrataParts: string[] = [];
             if (tithiIdx === 14) vrataParts.push("ഇന്ന്, പൗർണ്ണമി വ്രതമാണ്.");
-            else if (tithiIdx === 29) vrataParts.push("ഇന്ന്, അമാവാസി ആണ്.");
             else if (tithiIdx === 10 || tithiIdx === 25) vrataParts.push("ഇന്ന്, ഏകാദശി വ്രതമാണ്.");
             else if (tithiIdx === 12 || tithiIdx === 27) vrataParts.push("ഇന്ന്, പ്രദോഷ വ്രതമാണ്.");
             else if (tithiIdx === 3) vrataParts.push("ഇന്ന്, വിനായക ചതുർത്ഥി, വ്രതമാണ്.");
@@ -936,72 +896,6 @@ app.get('/api/panchangam', async (req: Request, res: Response) => {
                 panchakaText = `ഇന്ന്, ${panchakaMap[panchakaRem]}, ഉള്ളതിനാൽ, ശ്രദ്ധിക്കുക.`;
             }
 
-            // N. ഇന്നത്തെ, പൂജാവിശേഷങ്ങൾ (വിശേഷമുള്ള ദിവസങ്ങളിൽ മാത്രം)
-            const pujaParts: string[] = [];
-
-            // 1. പ്രദോഷ പൂജാ സമയം
-            if ((tithiIdx === 12 || tithiIdx === 27) && ssMins > 0) {
-                const pradoshaStartRaw = minsToTime(ssMins - 72);
-                const pradoshaEndRaw = minsToTime(ssMins + 72);
-                pujaParts.push(`ഇന്ന്, പ്രദോഷ പൂജാ സമയം, ${formatTimeSpoken(pradoshaStartRaw)}, മുതൽ. അവസാനം, ${formatTimeSpoken(pradoshaEndRaw)}, വരെ ആണ്.`);
-            }
-
-            // 2. ശിവവാസം (അവസ്ഥയും ഫലവും സഹിതം)
-            const shivaRem = (((tithiIdx + 1) * 2) + 5) % 7;
-            if (shivaRem === 1) {
-                pujaParts.push(`ഇന്ന് ശിവവാസം, കൈലാസത്തിൽ ആണ്. ഇത് സുഖവും, സമാധാനവും നൽകുന്നു. അതിനാൽ, അഭിഷേകത്തിന് ഉത്തമമാണ്.`);
-            } else if (shivaRem === 2) {
-                pujaParts.push(`ഇന്ന് ശിവവാസം, ഗൗരീസന്നിധിയിൽ ആണ്. ഇത് സൗഭാഗ്യവും, ഐശ്വര്യവും നൽകുന്നു. അതിനാൽ, അഭിഷേകത്തിന് ഉത്തമമാണ്.`);
-            } else if (shivaRem === 3) {
-                pujaParts.push(`ഇന്ന് ശിവവാസം, വൃഷഭവാഹനത്തിൽ ആണ്. ഇത്, അഭീഷ്ടസിദ്ധിയും, കാര്യവിജയവും നൽകുന്നു. അതിനാൽ, അഭിഷേകത്തിന് ഉത്തമമാണ്.`);
-            }
-
-            // 3. അഗ്നിവാസം (ഹോമങ്ങൾക്ക് ഉത്തമം)
-            const isAgniEarth = (((tithiIdx + 1) + weekdayNum + 1) % 4) === 0;
-            if (isAgniEarth) {
-                pujaParts.push(`ഇന്ന്, അഗ്നിവാസം പൃഥ്വിയിൽ, ആയതിനാൽ, ഹോമങ്ങൾക്ക് ഉത്തമമാണ്.`);
-            }
-
-            // 4. മഹാവിഷ്ണു വിശേഷം (ഏകാദശി, ദ്വാദശി, തിരുവോണം നക്ഷത്രം)
-            const isVishnuSpecial = (tithiIdx === 10 || tithiIdx === 25 || tithiIdx === 11 || tithiIdx === 26 || nakIdx === 21);
-            if (isVishnuSpecial) {
-                pujaParts.push(`ഇന്ന്, മഹാവിഷ്ണു പൂജയ്ക്കും, സഹസ്രനാമ ജപത്തിനും, അതിവിശേഷമാണ്.`);
-            }
-
-            // 5. ഭഗവതി വിശേഷം (ചൊവ്വ, വെള്ളി, പൗർണ്ണമി, അഷ്ടമി, നവമി, ഭരണി, കാർത്തിക, പൂരം, ഉത്രം)
-            const isBhagavathiSpecial = (
-                dayIndex === 2 || dayIndex === 5 ||
-                tithiIdx === 14 || tithiIdx === 7 || tithiIdx === 22 || tithiIdx === 8 || tithiIdx === 23 ||
-                nakIdx === 1 || nakIdx === 2 || nakIdx === 10 || nakIdx === 11
-            );
-            if (isBhagavathiSpecial) {
-                pujaParts.push(`ഇന്ന്, ഭഗവതി പൂജയ്ക്കും, ലളിതാ സഹസ്രനാമ, ജപത്തിനും, അതിവിശേഷമാണ്.`);
-            }
-
-            // 6. ഗണപതി വിശേഷം (ചതുർത്ഥി തിഥി)
-            if (tithiIdx === 3 || tithiIdx === 18) {
-                pujaParts.push(`ഇന്ന്, ഗണപതി പൂജയ്ക്കും, വിഘ്നനിവാരണത്തിനും, അതിവിശേഷമാണ്.`);
-            }
-
-            // 7. സുബ്രഹ്മണ്യ വിശേഷം (ഷഷ്ഠി തിഥി, പൂയം നക്ഷത്രം)
-            if (tithiIdx === 5 || tithiIdx === 20 || nakIdx === 7) {
-                pujaParts.push(`ഇന്ന്, സുബ്രഹ്മണ്യ പൂജയ്ക്കും, വഴിപാടുകൾക്കും, അതിവിശേഷമാണ്.`);
-            }
-
-            // 8. ശാസ്താവ് / ശനിദോഷ പരിഹാരം (ശനിയാഴ്ച, ഉത്രം, അനിഴം നക്ഷത്രങ്ങൾ)
-            if (dayIndex === 6 || nakIdx === 11 || nakIdx === 16) {
-                pujaParts.push(`ഇന്ന്, ശാസ്താ പൂജയ്ക്കും, ശനിദോഷ പരിഹാരത്തിനും, അതിവിശേഷമാണ്.`);
-            }
-
-            // 9. നാഗദൈവങ്ങൾ (ആയില്യം നക്ഷത്രം)
-            if (nakIdx === 8) {
-                pujaParts.push(`ഇന്ന് ആയില്യം, ആയതിനാൽ, നാഗപൂജയ്ക്കും, നൂറും പാലും, സമർപ്പിക്കാനും, ഉത്തമമാണ്.`);
-            }
-
-            if (pujaParts.length > 0) {
-                pujaVisheshangalText = `ഇന്നത്തെ, പൂജാവിശേഷങ്ങൾ. ${pujaParts.join(" ")}`;
-            }
-
         } else {
             const nakshatraEng = data?.nakshatra?.name || "ലഭ്യമല്ല";
             const nakshatraMal = nakshatraMap[nakshatraEng] || nakshatraEng;
@@ -1012,6 +906,70 @@ app.get('/api/panchangam', async (req: Request, res: Response) => {
             pakshamText = shuklaTithis.includes(tithiEng) ? "വെളുത്ത പക്ഷം." : "കറുത്ത പക്ഷം.";
             tithiDetailText = `തിഥി, ${tithiMal}.`;
             nakshatraDetailText = `ഇന്നത്തെ നക്ഷത്രം, ${nakshatraMal} ആണ്.`;
+
+            const foundTIdx = tithiListMal.indexOf(tithiMal);
+            if (foundTIdx !== -1) activeTithiIdx = foundTIdx;
+            const foundNIdx = nakshatraListMal.indexOf(nakshatraMal);
+            if (foundNIdx !== -1) activeNakIdx = foundNIdx;
+        }
+
+        // N. ഇന്നത്തെ, പൂജാവിശേഷങ്ങൾ (പിതൃതർപ്പണം ഒഴിവാക്കി)
+        const pujaParts: string[] = [];
+
+        if (activeTithiIdx !== -1) {
+            if ((activeTithiIdx === 12 || activeTithiIdx === 27) && ssMins > 0) {
+                const pradoshaStartRaw = minsToTime(ssMins - 72);
+                const pradoshaEndRaw = minsToTime(ssMins + 72);
+                pujaParts.push(`ഇന്ന്, പ്രദോഷ പൂജാ സമയം, ${formatTimeSpoken(pradoshaStartRaw)}, മുതൽ. അവസാനം, ${formatTimeSpoken(pradoshaEndRaw)}, വരെ ആണ്.`);
+            }
+
+            const shivaRem = (((activeTithiIdx + 1) * 2) + 5) % 7;
+            if (shivaRem === 1) {
+                pujaParts.push(`ഇന്ന് ശിവവാസം, കൈലാസത്തിൽ ആണ്. ഇത് സുഖവും, സമാധാനവും നൽകുന്നു. അതിനാൽ, അഭിഷേകത്തിന് ഉത്തമമാണ്.`);
+            } else if (shivaRem === 2) {
+                pujaParts.push(`ഇന്ന് ശിവവാസം, ഗൗരീസന്നിധിയിൽ ആണ്. ഇത് സൗഭാഗ്യവും, ഐശ്വര്യവും നൽകുന്നു. അതിനാൽ, അഭിഷേകത്തിന് ഉത്തമമാണ്.`);
+            } else if (shivaRem === 3) {
+                pujaParts.push(`ഇന്ന് ശിവവാസം, വൃഷഭവാഹനത്തിൽ ആണ്. ഇത്, അഭീഷ്ടസിദ്ധിയും, കാര്യവിജയവും നൽകുന്നു. അതിനാൽ, അഭിഷേകത്തിന് ഉത്തമമാണ്.`);
+            }
+
+            const isAgniEarth = (((activeTithiIdx + 1) + weekdayNum + 1) % 4) === 0;
+            if (isAgniEarth) {
+                pujaParts.push(`ഇന്ന്, അഗ്നിവാസം പൃഥ്വിയിൽ, ആയതിനാൽ, ഹോമങ്ങൾക്ക് ഉത്തമമാണ്.`);
+            }
+        }
+
+        const isVishnuSpecial = (activeTithiIdx === 10 || activeTithiIdx === 25 || activeTithiIdx === 11 || activeTithiIdx === 26 || activeNakIdx === 21);
+        if (isVishnuSpecial) {
+            pujaParts.push(`ഇന്ന്, മഹാവിഷ്ണു പൂജയ്ക്കും, സഹസ്രനാമ ജപത്തിനും, അതിവിശേഷമാണ്.`);
+        }
+
+        const isBhagavathiSpecial = (
+            dayIndex === 2 || dayIndex === 5 ||
+            activeTithiIdx === 14 || activeTithiIdx === 7 || activeTithiIdx === 22 || activeTithiIdx === 8 || activeTithiIdx === 23 ||
+            activeNakIdx === 1 || activeNakIdx === 2 || activeNakIdx === 10 || activeNakIdx === 11
+        );
+        if (isBhagavathiSpecial) {
+            pujaParts.push(`ഇന്ന്, ഭഗവതി പൂജയ്ക്കും, ലളിതാ സഹസ്രനാമ, ജപത്തിനും, അതിവിശേഷമാണ്.`);
+        }
+
+        if (activeTithiIdx === 3 || activeTithiIdx === 18) {
+            pujaParts.push(`ഇന്ന്, ഗണപതി പൂജയ്ക്കും, വിഘ്നനിവാരണത്തിനും, അതിവിശേഷമാണ്.`);
+        }
+
+        if (activeTithiIdx === 5 || activeTithiIdx === 20 || activeNakIdx === 7) {
+            pujaParts.push(`ഇന്ന്, സുബ്രഹ്മണ്യ പൂജയ്ക്കും, വഴിപാടുകൾക്കും, അതിവിശേഷമാണ്.`);
+        }
+
+        if (dayIndex === 6 || activeNakIdx === 11 || activeNakIdx === 16) {
+            pujaParts.push(`ഇന്ന്, ശാസ്താ പൂജയ്ക്കും, ശനിദോഷ പരിഹാരത്തിനും, അതിവിശേഷമാണ്.`);
+        }
+
+        if (activeNakIdx === 8) {
+            pujaParts.push(`ഇന്ന് ആയില്യം, ആയതിനാൽ, നാഗപൂജയ്ക്കും, നൂറും പാലും, സമർപ്പിക്കാനും, ഉത്തമമാണ്.`);
+        }
+
+        if (pujaParts.length > 0) {
+            pujaVisheshangalText = `ഇന്നത്തെ, പൂജാവിശേഷങ്ങൾ. ${pujaParts.join(" ")}`;
         }
 
         // ==========================================
@@ -1019,7 +977,7 @@ app.get('/api/panchangam', async (req: Request, res: Response) => {
         // ==========================================
         const sections = [
             `${malMonthText} ഇന്നത്തെ, സമ്പൂർണ്ണ പഞ്ചാംഗം. ${rithuText} ${ayanamText} ${njattuvelaText} ${sankrantiText}`,
-            `${varaadhipanText} ${sunriseText} ${sunsetText} ${dinamanamText} ${moonriseText} ${moonsetText} ${illuminationText}`,
+            `${varaadhipanText} ${sunriseText} ${sunsetText} ${dinamanamText} ${illuminationText}`,
             `${specialEventText} ${pakshamText} ${tithiDetailText} ${nakshatraDetailText} ${yogaDetailText} ${karanaDetailText}`,
             `${moonRashiText} ${chandrabalamText} ${tarabalamText}`,
             `ഇന്നത്തെ, ശുഭമുഹൂർത്തങ്ങളും, വിശേഷയോഗങ്ങളും. ${brahmaText} ${amritakalamText} ${abhijitText} ${anandadiText} ${pushkaraText}`,
